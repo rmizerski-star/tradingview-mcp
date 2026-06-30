@@ -1,0 +1,284 @@
+---
+name: xauusd-analysis
+description: >
+  Kompletna analiza sesyjna XAUUSD (złoto) w stylu Trading Room Workshop.
+  Używaj tego skilla ZAWSZE gdy użytkownik pisze: "analiza", "zrób analizę",
+  "setup", "xauusd analiza", "analiza złota", "plan sesji", "podsumowanie",
+  "plan na dziś", "co z goldem", "sprawdź setup", "odśwież analizę",
+  "analiza sesji", "londyn setup", "ny setup", lub pyta o bias/entry/SL/TP
+  na XAUUSD. Skill pobiera live dane z TradingView, wykonuje analizę SMC/ICT,
+  rysuje poziomy na wykresie i wyświetla profesjonalny panel Trading Room Workshop.
+---
+
+# XAUUSD Analysis Skill — Trading Room Workshop
+
+Twoim zadaniem jest wygenerowanie pełnej analizy sesyjnej XAUUSD i zaprezentowanie jej w profesjonalnym panelu wizualnym. Poniżej masz dokładny przepis — trzymaj się go krok po kroku.
+
+## Krok 1 — Zbierz dane z TradingView (wszystkie narzędzia równolegle)
+
+Wywołaj jednocześnie:
+- `mcp__tradingview__quote_get` (symbol: "XAUUSD")
+- `mcp__tradingview__data_get_ohlcv` (count: 50, summary: false)
+- `mcp__tradingview__data_get_pine_lines` (study_filter: "Liquidity Map")
+- `mcp__tradingview__data_get_pine_labels` (study_filter: "Liquidity Map")
+- `mcp__tradingview__data_get_pine_labels` (study_filter: "Smart Money")
+
+## Krok 2 — Analiza struktury SMC/ICT
+
+Na podstawie zebranych danych wyznacz:
+
+### Kluczowe poziomy z Liquidity Map
+Z etykiet szukaj:
+- **CDH** (Current Day High) i **CDL** (Current Day Low)
+- **PDH** (Previous Day High) i **PDL** (Previous Day Low)  
+- **CWH/CWL** (Current Week High/Low)
+- **PWH/PWL** (Previous Week High/Low)
+
+### Struktura z OHLCV (ostatnie 50 świec M15)
+Zidentyfikuj:
+- Kierunek trendu intraday (wyższe dołki = UP, niższe szczyty = DOWN)
+- Ostatni duży ruch impulsowy (znacząca świeca z dużym wolumenem)
+- Strefy konsolidacji (ciasne świece o małym zasięgu)
+- Swing High i Swing Low ostatniej sesji
+
+### Wyznacz bias
+- **D1 Bias**: Sprawdź czy cena jest powyżej czy poniżej PWH/PWL
+- **H4/H1 Bias**: Na podstawie ostatnich 10-15 świec M15 (trend)
+- **M15 Bias**: Ostatnie 3-5 świec — momentum
+- **Prawdopodobieństwo setupu**: 60-75% (wysoki, wyraźna struktura), 40-60% (neutralny, niepewny)
+
+### Wyznacz poziomy setupu
+
+**Przy LONG bias:**
+- ENTRY: pullback do strefy CHoCH / demand zone (ostatni swing low + bufor ~5 pkt)
+- SL: poniżej ostatniego swing low (entry - 12-20 pkt zależnie od ATR)
+- TP1: najbliższy opór (PDH lub CDH) 
+- TP2: następny opór (CWH lub kolejna strefa liquidity)
+- TP3: ekstensja SMC (TP2 + dystans TP1→TP2)
+- LONG ALT: głębsza strefa demand (tylko gdy istnieje wyraźna H4 OB poniżej entry)
+
+**Przy SHORT bias:**
+- ENTRY: rally do strefy CHoCH / supply zone (ostatni swing high - bufor ~5 pkt)
+- SL: powyżej ostatniego swing high (entry + 12-20 pkt)
+- TP1: najbliższe wsparcie (PDL lub CDL)
+- TP2: następne wsparcie (CWL lub kolejna strefa liquidity)
+- TP3: ekstensja SMC
+
+### Oblicz R/R
+```
+Ryzyko = |entry - SL|
+RR_TP1 = (TP1 - entry) / Ryzyko  [dla long]
+RR_TP2 = (TP2 - entry) / Ryzyko
+RR_TP3 = (TP3 - entry) / Ryzyko
+```
+Zaokrąglij do 2 miejsc po przecinku.
+
+### Stwórz 3 scenariusze dnia
+- **Scenariusz A** (priorytetowy, ~60-75%): zgodny z głównym biasem
+- **Scenariusz B** (alternatywny, ~15-25%): głębsza korekta lub inna strefa wejścia
+- **Scenariusz C** (odwrócenie, ~5-15%): przeciwny do biasu, jeśli kluczowy poziom zostanie przebity
+
+### Plan sesyjny
+- **Londyn (07:00-12:00 UTC)**: co się oczekuje, jaki poziom kluczowy, gdzie szukać wejścia
+- **Nowy Jork (13:30-17:00 UTC)**: kontynuacja czy rewersja, ważne newsy (13:30 UTC!), cel dnia
+
+## Krok 3 — Narysuj poziomy na wykresie TradingView
+
+Użyj `mcp__tradingview__draw_shape` dla każdego poziomu (wywołaj równolegle):
+
+```
+ENTRY: linecolor="#F0A500", linewidth=3, linestyle=0, text="ENTRY [LONG/SHORT]"
+SL:    linecolor="#E74C3C", linewidth=3, linestyle=1, text="STOP LOSS"  
+TP1:   linecolor="#E67E22", linewidth=2, linestyle=0, text="TP 1"
+TP2:   linecolor="#2ECC71", linewidth=2, linestyle=0, text="TP 2"
+TP3:   linecolor="#2ECC71", linewidth=2, linestyle=0, text="TP 3"
+```
+
+Użyj `point: { time: <ostatni_timestamp_baru>, price: <poziom> }`.
+
+## Krok 4 — Wyświetl panel Trading Room Workshop
+
+Wywołaj `show_widget` z poniższym HTML. Wypełnij wszystkie wartości `{{PLACEHOLDER}}` rzeczywistymi danymi z analizy.
+
+**Ważne zasady panelu:**
+- Tło panelu: `#0f1117` (ciemne, jak w Trading Room)
+- LONG bias badge: zielony `#1a7a4a`; SHORT bias badge: czerwony `#c0392b`
+- Cena: pomarańczowa `#f0a500`
+- TP poziomy: zielone; SL: czerwony; Entry: pomarańczowy
+- R/R wyświetlaj jako `1 : X.XX`
+- Prawdopodobieństwo scenariusza A w nagłówku sekcji "Poziomy"
+- Datę formatuj jako DD.MM.YYYY
+
+Skopiuj poniższy HTML i podmień placeholdery:
+
+```html
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{background:#0f1117;border-radius:12px;overflow:hidden;max-width:560px;margin:0 auto;border:1px solid #2a2d3a;font-family:system-ui,sans-serif}
+.header{background:#13161f;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2a2d3a}
+.logo{width:44px;height:44px;background:#1e2130;border-radius:50%;border:2px solid #f0a500;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.brand{margin-left:10px}
+.brand h1{font-size:13px;font-weight:700;color:#fff;letter-spacing:1px}
+.brand p{font-size:11px;color:#6b7280;margin-top:2px}
+.logo-area{display:flex;align-items:center}
+.badge{font-size:11px;font-weight:700;padding:6px 12px;border-radius:6px;letter-spacing:1px}
+.badge-bull{background:#1a7a4a;color:#2ecc71}
+.badge-bear{background:#c0392b;color:#ff6b6b}
+.symbol-bar{background:#161925;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #2a2d3a}
+.sym-left h2{font-size:26px;font-weight:700;color:#fff}
+.sym-left p{font-size:11px;color:#6b7280;margin-top:3px}
+.price-label{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;text-align:right}
+.price-val{font-size:24px;font-weight:700;color:#f0a500;text-align:right}
+.alert{margin:12px;background:#1c1208;border:1px solid #7a4a00;border-radius:8px;padding:12px 14px}
+.alert-title{font-size:11px;font-weight:700;color:#f0a500;letter-spacing:1px;margin-bottom:6px}
+.alert p{font-size:12px;color:#b8860b;line-height:1.6}
+.alert strong{color:#f0a500}
+.bias-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 12px 12px}
+.bc{background:#161925;border-radius:7px;padding:8px 4px;border:1px solid #2a2d3a;text-align:center}
+.bc-lbl{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.bc-val{font-size:11px;font-weight:700}
+.bull{color:#2ecc71}.bear{color:#e74c3c}.neu{color:#f0a500}
+.sec{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:2px;padding:0 12px 6px;display:flex;align-items:center;gap:6px}
+.sec::before{content:'';width:3px;height:12px;background:#f0a500;border-radius:2px;display:inline-block}
+.sess-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 12px 12px}
+.sess{background:#161925;border-radius:8px;padding:12px;border:1px solid #2a2d3a}
+.sess-h{font-size:10px;font-weight:700;letter-spacing:1px;margin-bottom:3px}
+.sess-t{font-size:9px;color:#6b7280;margin-bottom:8px}
+.sess p{font-size:11px;color:#9ca3af;line-height:1.6}
+.sess strong{color:#fff}
+.gb{color:#3b82f6}.us{color:#ef4444}
+.scen-wrap{margin:0 12px 12px}
+.scen{display:flex;align-items:flex-start;gap:10px;background:#161925;border-radius:7px;padding:10px 12px;margin-bottom:6px;border:1px solid #2a2d3a}
+.sbadge{width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.sa{background:#1a7a4a;color:#2ecc71}.sb{background:#7a5a00;color:#f0a500}.sc{background:#3a1a1a;color:#e74c3c}
+.scen p{font-size:11px;color:#9ca3af;line-height:1.5;flex:1}
+.prob{font-size:12px;font-weight:700;margin-left:auto;white-space:nowrap;padding-top:2px}
+.fib-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 12px 12px}
+.fib{background:#161925;border-radius:8px;padding:12px;border:1px solid #2a2d3a;text-align:center}
+.fib-lbl{font-size:9px;color:#f0a500;font-weight:700;letter-spacing:1px;margin-bottom:4px}
+.fib-p{font-size:20px;font-weight:700;color:#fff;margin-bottom:4px}
+.fib-sub{font-size:10px;color:#6b7280;line-height:1.4}
+.lvls{margin:0 12px 0}
+.lvl{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:7px;margin-bottom:5px}
+.lvl-name{font-size:11px;font-weight:600;color:#9ca3af;display:flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.d-e{background:#f0a500}.d-sl{background:#e74c3c}.d-tp1{background:#e67e22}.d-tp2{background:#2ecc71}.d-tp3{background:#2ecc71}.d-alt{background:#3b82f6}
+.lvl-p{font-size:17px;font-weight:700;color:#fff}
+.lvl-n{font-size:10px;color:#6b7280;text-align:right;max-width:160px;line-height:1.4}
+.bg-e{background:#1c1508}.bg-sl{background:#1c0808}.bg-tp{background:#0a1c0f}.bg-alt{background:#080f1c}
+.rr-row{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #2a2d3a;margin-top:12px}
+.rr{text-align:center;padding:12px 8px;border-right:1px solid #2a2d3a}
+.rr:last-child{border-right:none}
+.rr-lbl{font-size:9px;color:#6b7280;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.rr-v{font-size:16px;font-weight:700;color:#f0a500}
+</style>
+<div class="wrap">
+  <div class="header">
+    <div class="logo-area">
+      <div class="logo">📊</div>
+      <div class="brand">
+        <h1>TRADING ROOM WORKSHOP</h1>
+        <p>🗓 Analiza Sesyjna · {{DATA}} · ICT/SMC M15</p>
+      </div>
+    </div>
+    <div class="badge {{BADGE_CLASS}}">⚡ {{BIAS_LABEL}}</div>
+  </div>
+  <div class="symbol-bar">
+    <div class="sym-left">
+      <h2>XAUUSD</h2>
+      <p>GOLD · M15 · Sesja Londyn + NY</p>
+    </div>
+    <div>
+      <div class="price-label">Cena aktualna</div>
+      <div class="price-val">{{CENA}}</div>
+    </div>
+  </div>
+  <div class="alert">
+    <div class="alert-title">⚡ KONTEKST RYNKOWY</div>
+    <p>{{KONTEKST}}</p>
+  </div>
+  <div class="bias-grid">
+    <div class="bc"><div class="bc-lbl">Bias D1</div><div class="bc-val {{BIAS_D1_CLASS}}">{{BIAS_D1}}</div></div>
+    <div class="bc"><div class="bc-lbl">Bias H4</div><div class="bc-val {{BIAS_H4_CLASS}}">{{BIAS_H4}}</div></div>
+    <div class="bc"><div class="bc-lbl">Bias M15</div><div class="bc-val {{BIAS_M15_CLASS}}">{{BIAS_M15}}</div></div>
+    <div class="bc"><div class="bc-lbl">Prawdop.</div><div class="bc-val bull">{{PRAWDOP}}%</div></div>
+  </div>
+  <div class="sec">Plan sesyjny</div>
+  <div class="sess-grid">
+    <div class="sess">
+      <div class="sess-h"><span class="gb">🇬🇧</span> LONDYN</div>
+      <div class="sess-t">07:00–12:00 UTC</div>
+      <p>{{PLAN_LONDYN}}</p>
+    </div>
+    <div class="sess">
+      <div class="sess-h"><span class="us">🇺🇸</span> NOWY JORK</div>
+      <div class="sess-t">13:30–17:00 UTC</div>
+      <p>{{PLAN_NY}}</p>
+    </div>
+  </div>
+  <div class="sec">Scenariusze na cały dzień</div>
+  <div class="scen-wrap">
+    <div class="scen"><div class="sbadge sa">A</div><p>{{SCEN_A}}</p><div class="prob bull">{{PROB_A}}%</div></div>
+    <div class="scen"><div class="sbadge sb">B</div><p>{{SCEN_B}}</p><div class="prob neu">{{PROB_B}}%</div></div>
+    <div class="scen"><div class="sbadge sc">C</div><p>{{SCEN_C}}</p><div class="prob bear">{{PROB_C}}%</div></div>
+  </div>
+  <div class="sec">Fibonacci — klucz do dnia</div>
+  <div class="fib-grid">
+    <div class="fib">
+      <div class="fib-lbl">⭐ {{FIB_ENTRY_LBL}}</div>
+      <div class="fib-p">{{FIB_ENTRY_PRICE}}</div>
+      <div class="fib-sub">{{FIB_ENTRY_SUB}}</div>
+    </div>
+    <div class="fib">
+      <div class="fib-lbl">🎯 {{FIB_TARGET_LBL}}</div>
+      <div class="fib-p">{{FIB_TARGET_PRICE}}</div>
+      <div class="fib-sub">{{FIB_TARGET_SUB}}</div>
+    </div>
+  </div>
+  <div class="sec">Poziomy — Setup {{DIR}} (Priorytet A · {{PRAWDOP}}%)</div>
+  <div class="lvls">
+    <div class="lvl bg-e"><div class="lvl-name"><span class="dot d-e"></span> ENTRY {{DIR}}</div><div class="lvl-p">{{ENTRY}}</div><div class="lvl-n">{{ENTRY_NOTE}}</div></div>
+    <div class="lvl bg-sl"><div class="lvl-name"><span class="dot d-sl"></span> STOP LOSS</div><div class="lvl-p">{{SL}}</div><div class="lvl-n">{{SL_NOTE}}</div></div>
+    <div class="lvl bg-tp"><div class="lvl-name"><span class="dot d-tp1"></span> TP 1</div><div class="lvl-p">{{TP1}}</div><div class="lvl-n">{{TP1_NOTE}}</div></div>
+    <div class="lvl bg-tp"><div class="lvl-name"><span class="dot d-tp2"></span> TP 2</div><div class="lvl-p">{{TP2}}</div><div class="lvl-n">{{TP2_NOTE}}</div></div>
+    <div class="lvl bg-tp"><div class="lvl-name"><span class="dot d-tp3"></span> TP 3</div><div class="lvl-p">{{TP3}}</div><div class="lvl-n">{{TP3_NOTE}}</div></div>
+    <div class="lvl bg-alt"><div class="lvl-name"><span class="dot d-alt"></span> ALT. ENTRY</div><div class="lvl-p">{{ALT}}</div><div class="lvl-n">{{ALT_NOTE}}</div></div>
+  </div>
+  <div class="rr-row">
+    <div class="rr"><div class="rr-lbl">R/R do TP1</div><div class="rr-v">1 : {{RR1}}</div></div>
+    <div class="rr"><div class="rr-lbl">R/R do TP2</div><div class="rr-v">1 : {{RR2}}</div></div>
+    <div class="rr"><div class="rr-lbl">R/R do TP3</div><div class="rr-v">1 : {{RR3}}</div></div>
+  </div>
+</div>
+```
+
+## Zasady podmiany placeholderów
+
+| Placeholder | Co wstawić |
+|---|---|
+| `{{DATA}}` | Data w formacie DD.MM.YYYY |
+| `{{BADGE_CLASS}}` | `badge-bull` lub `badge-bear` |
+| `{{BIAS_LABEL}}` | `LONG BIAS` lub `SHORT BIAS` |
+| `{{CENA}}` | Aktualna cena z quote_get, np. `4 210.28` (ze spacją tysiąca) |
+| `{{KONTEKST}}` | 2-3 zdania: co się wydarzyło, jaki kluczowy ruch, gdzie cena jest teraz, na co czekamy |
+| `{{BIAS_D1/H4/M15_CLASS}}` | `bull`, `bear`, lub `neu` |
+| `{{BIAS_D1/H4/M15}}` | Emoji + słowo: `🐂 BYCZE`, `🐻 NIEDŹWIEDZIE`, `⚡ PULLBACK`, `🔄 KONSOLIDACJA` |
+| `{{PRAWDOP}}` | Liczba 55-75 |
+| `{{PLAN_LONDYN/NY}}` | Krótki plan 2-3 zdania z `<strong>` wokół kluczowych poziomów |
+| `{{SCEN_A/B/C}}` | Opis scenariusza — co musi się stać, jaki cel |
+| `{{PROB_A/B/C}}` | Suma musi być ~100 |
+| `{{FIB_*}}` | Fibonacci level label (np. `0.382 — DEMAND`), cena i opis |
+| `{{DIR}}` | `LONG` lub `SHORT` |
+| `{{ENTRY/SL/TP1/TP2/TP3}}` | Cena z 2 miejscami po przecinku |
+| `{{*_NOTE}}` | Krótki opis 2 linijki: uzasadnienie + dystans od entry |
+| `{{ALT}}` | Zakres alternatywnego entry np. `4 185–4 188` |
+| `{{RR1/2/3}}` | R/R zaokrąglone do 2 miejsc |
+
+## Zachowanie po wygenerowaniu
+
+Po wyświetleniu panelu napisz krótkie podsumowanie tekstowe (2-3 zdania) w języku polskim:
+- Co jest kluczowym warunkiem wejścia
+- Na co szczególnie uważać (np. news, poziom do obrony)
+- Kiedy setup traci ważność
+
+Nie powtarzaj wszystkich liczb z panelu — panel już je pokazuje.

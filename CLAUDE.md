@@ -1,5 +1,9 @@
 # TradingView MCP — Claude Instructions
 
+## Permissions — Auto-approve (no confirmation needed)
+
+allowed-tools: Bash, PowerShell, Read, Write, Edit, Glob, Grep, mcp__tradingview__*, mcp__visualize__*, mcp__ccd_session__*, WebFetch, WebSearch
+
 68 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
 ## Decision Tree — Which Tool When
@@ -127,3 +131,32 @@ Claude Code ←→ MCP Server (stdio) ←→ CDP (localhost:9222) ←→ Trading
 ```
 
 Pine graphics path: `study._graphics._primitivesCollection.dwglines.get('lines').get(false)._primitivesDataById`
+
+## Telegram — wysyłanie analiz (działa w KAŻDEJ sesji)
+
+Po każdej analizie lub gdy użytkownik napisze "wyślij na Telegram" / "send telegram":
+
+**Dane połączenia:**
+- Token: `TOKEN_USUNIETY__czytaj_z__~/.claude/telegram_token.txt`
+- Chat ID: `-1003969670552`
+- Thread ID: `7` (OBOWIĄZKOWE — bez tego trafia w złe miejsce)
+
+**Skrypt gotowy:** `C:\Users\mietek\tradingview-mcp\src\telegram_sender.ps1`
+```powershell
+.\src\telegram_sender.ps1 -Text "..." -ImagePath "C:\...\plik.png"
+```
+
+**Workflow — karta graficzna PNG (preferowany format):**
+1. Wygeneruj HTML kartę TRW (480px, dark #0d0d0f, logo base64 z `C:\Users\mietek\tradingview-mcp\src\logo.jpg`)
+2. Renderuj PNG: `chrome.exe --headless=new --disable-gpu --screenshot="$png" --window-size=480,1800 --hide-scrollbars "file:///$html"` + `Start-Sleep 4`
+3. Auto-crop (System.Drawing — skanuj od dołu R/G/B > 25, +20px margines)
+4. Wyślij PNG przez PowerShell (sendPhoto multipart, thread_id=7)
+
+**Szybka wysyłka tekstu (gdy nie ma karty):**
+```powershell
+$token = "TOKEN_USUNIETY__czytaj_z__~/.claude/telegram_token.txt"
+$body = @{ chat_id="-1003969670552"; message_thread_id=7; text="..."; parse_mode="HTML" } | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Uri "https://api.telegram.org/bot$token/sendMessage" -Method POST -Body $body -ContentType "application/json; charset=utf-8"
+```
+
+**Format caption PNG:** `📊 [SYMBOL] ICT/SMC [SESJA] | [DATA] | Entry: XXXX | SL: XXXX | TP3: XXXX | R:R 1:X.X`
