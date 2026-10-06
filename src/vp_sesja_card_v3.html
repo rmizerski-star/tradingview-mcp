@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>VP Londyn 06.10.2026</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0c10;font-family:'Segoe UI',Arial,sans-serif;color:#1a2535;-webkit-font-smoothing:antialiased}
+.card{width:1800px;background:#e2e8f2;overflow:hidden}
+
+.ticker{background:#060c14;padding:6px 16px;font-size:10.5px;color:#7090b0;display:flex;gap:16px;align-items:center;flex-wrap:wrap;line-height:1.5;border-bottom:1px solid #1a2a3a}
+.ticker b{color:#c0d8f0}.neg{color:#ff6868;font-weight:700}.pos{color:#42cc88;font-weight:700}.warn{color:#ffd040;font-weight:700}
+
+.hdr{background:#0d1a28;padding:13px 18px;display:flex;align-items:center;gap:16px}
+.hdr img{width:52px;height:52px;border-radius:9px;flex-shrink:0}
+.hdr-m{flex:1}
+.hdr-t{font-size:17px;font-weight:700;color:#fff;letter-spacing:.1px;line-height:1.2}
+.hdr-s{font-size:10.5px;color:#88b8d8;margin-top:5px;line-height:1.9}
+.hdr-r{text-align:right;min-width:240px}
+.hdr-p{font-size:34px;font-weight:700;color:#ffc030;letter-spacing:-.5px;line-height:1}
+.hdr-d{font-size:10px;color:#b8d4f0;margin-top:5px;line-height:1.9}
+
+.sumbar{display:grid;grid-template-columns:repeat(6,1fr);background:#fff;border-bottom:3px solid #6878a0}
+.sb{padding:8px 12px;border-right:1px solid #c8d2e8;text-align:center}
+.sb:last-child{border-right:0}
+.sb-l{font-size:8.5px;color:#607090;text-transform:uppercase;letter-spacing:.5px;font-weight:700;line-height:1.3}
+.sb-v{font-size:21px;font-weight:700;margin-top:3px;line-height:1}
+.sb-d{font-size:9px;margin-top:2px;font-weight:600;color:#506080}
+
+.al-red{background:#180308;border-top:2.5px solid #a01828;border-bottom:2.5px solid #a01828;padding:7px 16px;font-size:10.5px;color:#ff8080;font-weight:700;text-align:center;line-height:2.1}
+.al-blue{background:#040e1c;border-top:2.5px solid #1838a0;border-bottom:2.5px solid #1838a0;padding:7px 16px;font-size:10.5px;color:#78b0ff;font-weight:700;text-align:center;line-height:2.1}
+.al-green{background:#030d08;border-top:2px solid #1a8040;border-bottom:2px solid #1a8040;padding:5px 16px;font-size:10px;color:#58d090;font-weight:600;text-align:center;line-height:2}
+
+/* PREV SECTION */
+.prev-sect{background:#f4f9ff;border-bottom:3px solid #8898b8}
+.prev-hdr{background:#0d1428;padding:6px 16px;font-size:10px;font-weight:700;color:#88c0f0;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center}
+.prev-leg{display:flex;gap:12px;font-size:9px}
+.leg{padding:2.5px 10px;border-radius:3px;font-weight:700}
+.la{background:#c0f8d8;color:#085018;border:1px solid #38b058}
+.lp{background:#fff2b8;color:#786008;border:1px solid #c09818}
+.le{background:#ffd0c8;color:#800e16;border:1px solid #c05848}
+.ls{background:#c0deff;color:#063678;border:2px solid #4878c8}
+
+.prev-row{display:grid;grid-template-columns:110px 190px 1fr 110px 180px;padding:6px 16px;border-bottom:1px solid #ccd8f0;align-items:center;gap:12px}
+.prev-row.ra{background:#f0fff6}.prev-row.rp{background:#fffbec}.prev-row.re{background:#fff2f0}.prev-row.rs{background:#eaf2ff}
+.pr-lvl{font-family:'Courier New',monospace;font-weight:700;font-size:12.5px;color:#182848}
+.pr-name{font-weight:700;font-size:11px;color:#183858;line-height:1.45}
+.pr-desc{font-size:10.5px;color:#3a5870;line-height:1.55}
+.pr-vol{font-family:'Courier New',monospace;font-size:10px;font-weight:700;text-align:right;color:#607888}
+.pr-vol.bv{color:#901e10;font-size:11px}
+.pr-stat{padding:4px 10px;border-radius:4px;font-size:9.5px;font-weight:700;text-align:center}
+.sa{background:#c0f8d8;color:#085018;border:1px solid #38b058}
+.sp{background:#fff2b8;color:#786008;border:1px solid #c09818}
+.se{background:#ffd0c8;color:#800e16;border:1px solid #c05848}
+.ss{background:#c0deff;color:#063678;border:2.5px solid #4070c8}
+
+/* ROW 1 — 4 equal cols */
+.row1{display:grid;grid-template-columns:repeat(4,1fr);background:#fff;border-bottom:3px solid #6878a0}
+.r1c{padding:13px 15px;border-right:1px solid #c8d2e8}
+.r1c:last-child{border-right:0}
+.ct{font-size:10px;font-weight:700;color:#0d1a28;text-transform:uppercase;letter-spacing:.8px;padding-bottom:7px;border-bottom:2px solid #c8d2e8;margin-bottom:11px}
+
+/* HISTOGRAM */
+.hrow{display:flex;align-items:center;gap:5px;margin:3px 0}
+.hl{font-family:'Courier New',monospace;font-size:10px;color:#385070;text-align:right;width:66px;flex-shrink:0}
+.hl.red{color:#b81828;font-weight:700}.hl.grn{color:#0e6838;font-weight:700}.hl.poc{color:#1840a0;font-weight:700}
+.hbw{flex:1;height:13px;background:#edf1f8;border-radius:2px;position:relative}
+.hb{height:13px;border-radius:2px;position:absolute;left:0}
+.sell{background:linear-gradient(90deg,#f06878,#c02840)}.dist{background:linear-gradient(90deg,#f8a8b0,#de6880)}
+.fvg{background:linear-gradient(90deg,#d8e2f0,#c0ceea)}.neu{background:linear-gradient(90deg,#b0cadc,#98b8d0)}
+.buy{background:linear-gradient(90deg,#78d0a0,#38b060)}.akum{background:linear-gradient(90deg,#38e070,#08b038)}
+.hv{font-family:'Courier New',monospace;font-size:9.5px;color:#608098;width:46px;text-align:right;flex-shrink:0}
+.hv.bv{color:#981818;font-weight:700}.hv.gv{color:#0e6838;font-weight:700}
+.htag{font-size:8.5px;font-weight:700;padding:2px 5px;border-radius:2px;flex-shrink:0;min-width:42px;text-align:center}
+.ts{background:#fcd0d8;color:#800e18;border:1px solid #d05868}.td{background:#ffe0e8;color:#983040}
+.tf{background:#e0e8f8;color:#486898}.tb{background:#c8f0e0;color:#145e30}.ta{background:#a0f0c8;color:#085028}
+.tpoc{background:#c8dcff;color:#143a88;border:1px solid #4068d0}
+.hleg{border-top:2px dashed #c8d2e8;padding-top:9px;margin-top:9px}
+.hlr{display:flex;justify-content:space-between;align-items:center;margin:3px 0;font-size:10px}
+.hln{color:#486070;font-weight:600}.hlv{font-family:'Courier New',monospace;font-weight:700;font-size:11px;color:#182840}.hls{font-size:9px;color:#7090a8}
+
+/* FIB */
+.fib-hdr{font-size:10.5px;font-weight:700;color:#0d1528;background:#e8f0f8;padding:6px 10px;border-radius:4px;margin-bottom:9px;text-align:center}
+.fibr{display:flex;align-items:center;gap:7px;margin:5px 0}
+.fibl{font-size:10px;color:#4868a0;font-weight:700;width:46px;text-align:right;flex-shrink:0}
+.fibbw{flex:1;height:12px;background:#edf1f8;border-radius:2px;position:relative}
+.fibb{height:12px;border-radius:2px;position:absolute;left:0}
+.f1{background:#b82840}.f786{background:#d06070}.f705{background:#de8888}
+.f618{background:#dca080}.f5{background:#e8d080}.f382{background:#b0d880}
+.f236{background:#80c8a0}.f0{background:#30a058}
+.fibp{font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#182840;width:72px;text-align:right;flex-shrink:0}
+.fibn{font-size:9.5px;color:#4a8090;font-weight:600}
+.fib-curr{background:#fff8d0;border:2.5px solid #c0a000;border-radius:4px;padding:5px 10px;font-size:11px;font-weight:700;text-align:center;margin:9px 0;color:#785000}
+.kl-t{font-size:10px;font-weight:700;color:#0d1528;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.klrow{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #dae0f4}
+.kln{font-size:10.5px;color:#3a5878;font-weight:600}.klv{font-family:'Courier New',monospace;font-size:13px;font-weight:700;color:#182840}.kld{font-size:9px;color:#7090a8;text-align:right}
+
+/* CHRONO */
+.chr-sep{background:#0d1428;padding:4px 10px;font-size:9px;color:#78a8d0;font-weight:700;letter-spacing:.5px;margin:5px -15px}
+.chr-sep-b{background:#060e20;padding:4px 10px;font-size:9px;color:#4890e0;font-weight:700;letter-spacing:.5px;margin:5px -15px}
+.cr{display:flex;align-items:flex-start;gap:7px;margin:3.5px 0;padding:2.5px 0;border-bottom:1px solid #e8f0f8}
+.ct2{font-size:9px;color:#588098;font-weight:600;white-space:nowrap;min-width:86px;flex-shrink:0}
+.cx{flex:1;font-size:10.5px;color:#223858;line-height:1.5}
+.cv{font-size:9.5px;font-family:'Courier New',monospace;white-space:nowrap;min-width:52px;text-align:right;flex-shrink:0}
+.cv.bv{color:#981818;font-weight:700}.cv.gv{color:#0e6838;font-weight:700}.cv.nv{color:#708090}
+
+/* KEY LEVELS */
+.bias-box{margin-top:11px;background:#eaf2ff;border:2px solid #88b0e0;border-radius:5px;padding:9px 11px}
+.bb-t{font-size:10px;font-weight:700;color:#0c1e50;margin-bottom:6px}
+.bb-row{font-size:10.5px;color:#1a3060;line-height:2.1}
+
+/* SCENARIOS — 4 cols */
+.row2{display:grid;grid-template-columns:repeat(4,1fr);background:#eaeff8;border-bottom:3px solid #6878a0}
+.sc{padding:13px 15px;border-right:1px solid #c8d2e8}
+.sc:last-child{border-right:0}
+.sc-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid #b8c8dc}
+.scl{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.sca-c{background:#0a1e35;color:#48a8ff}.scb-c{background:#200508;color:#ff4848}
+.scc-c{background:#0e1808;color:#68a838}.scd-c{background:#1a1008;color:#f0c040}
+.sc-name{font-size:12px;font-weight:700;color:#18283a}
+.sc-tag{margin-left:auto;font-size:9px;padding:3px 9px;border-radius:4px;font-weight:700}
+.tl{background:#c0f4e0;color:#0a5028;border:1px solid #48b068}
+.ts2{background:#f8ccc8;color:#800e18;border:1px solid #c06858}
+.to{background:#e0ecd8;color:#305018;border:1px solid #78a848}
+.tw{background:#faf0c8;color:#604808;border:1px solid #c09828}
+.sc-body{font-size:10.5px;color:#283850;line-height:1.7}
+.sc-trig{background:#edf5ff;border-left:3px solid #3070c0;padding:6px 9px;margin:7px 0;font-size:10px;color:#182e60}
+.sc-trig b{color:#102858}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:7px 0}
+.ebox{padding:7px 9px;background:#fff;border-radius:4px;border:1px solid #c8d4ea}
+.ebl{font-size:8.5px;color:#607090;text-transform:uppercase;font-weight:700;letter-spacing:.3px}
+.ebv{font-family:'Courier New',monospace;font-size:14px;font-weight:700;color:#182840;margin-top:2px}
+.ebr{font-size:9px;color:#4a8080;margin-top:2px}
+.tprow{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #e8f0f8}
+.tpn{font-size:11px;color:#4a8090;font-weight:700}.tpv{font-family:'Courier New',monospace;font-size:12px;font-weight:700;color:#182840}.tpp{font-size:9.5px;color:#7898b0}
+
+/* WNIOSKI jako 4. kolumna scenariuszy */
+.wn-col{padding:13px 15px}
+.wn-t{font-size:10px;font-weight:700;color:#0d1a28;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px;padding-bottom:5px;border-bottom:2px solid #b8c8dc}
+.wn-l{list-style:none;font-size:10.5px;line-height:2;color:#283858}
+.wn-l li{padding:2px 0;border-bottom:1px solid #e8f0f8}
+.wn-l li::before{content:'\203A';color:#4870b0;margin-right:5px;font-size:14px;font-weight:700}
+.wn-l li.g::before{color:#0e7038}.wn-l li.g b{color:#0e7038}
+.wn-l li.r::before{color:#a01020}.wn-l li.r b{color:#a01020}
+.wn-l li.y::before{color:#9a6e08}.wn-l li.y b{color:#9a6e08}
+.wn-l li.p::before{color:#480ea0}.wn-l li.p b{color:#480ea0}
+
+.foot{background:#0d1a28;padding:8px 18px;font-size:9.5px;color:#5880a0;text-align:center;line-height:1.9}
+.mono{font-family:'Courier New',monospace;font-weight:700}
+</style></head>
+<body><div class="card">
+
+<!-- TOP TICKER BAR -->
+<div class="ticker">
+  <span><b>CDH REJECTED</b> 06.10 &rarr; <span class="neg">SPIKE CWL 4104!</span></span>
+  <span>CDH: <b>4 152,12</b> (01:00 UTC vol 8 691, odrzucone!)</span>
+  <span>CDL/CWL/CML/CQL: <span class="neg">4 104,06</span> (02:30 UTC vol <b>12 379!</b>)</span>
+  <span>Zakres: <b>&minus;48,06 pkt</b></span>
+  <span>Bounce: 4 104&rarr;4 133 (+29 pkt)</span>
+  <span class="warn">CWL = CDL = CML = CQL &mdash; 4&times; ZBIEZNOSC POZIOMOW!</span>
+  <span>VP POC: <b>4 129</b> &nbsp;|&nbsp; VAH: <b>4 141</b> &nbsp;|&nbsp; VAL: <b>4 120</b></span>
+  <span>PDH/CWH: <b>4 170,31</b> &nbsp;|&nbsp; nPOC: <b>4 184,84</b></span>
+</div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <img id="logo" src="LOGO_SRC" alt="TRW">
+  <div class="hdr-m">
+    <div class="hdr-t">XAU/USD &mdash; VP LONDYN [06.10.2026 Wt.] &mdash; CDH Rejected! Spike CWL / CML / CQL 4 104,06!</div>
+    <div class="hdr-s">FX:XAUUSD &middot; M15 &middot; CDH 4 152,12 (01:00 UTC, vol 8 691) &rarr; ODRZUCONE! &middot; SPIKE CWL 4 104,06 (02:30 UTC, vol 12 379!) &middot; Bounce +34 pkt &middot; Cena ~06:00 UTC przed Londynem</div>
+  </div>
+  <div class="hdr-r">
+    <div class="hdr-p">4 121,83</div>
+    <div class="hdr-d">CDH 4 152,12 &nbsp;&bull;&nbsp; CDL/CWL 4 104,06<br>PDH/CWH 4 170,31 &nbsp;&bull;&nbsp; PWL/PML 4 110,69</div>
+  </div>
+</div>
+
+<!-- SUMBAR -->
+<div class="sumbar">
+  <div class="sb"><div class="sb-l">CDH (odrzucone!)</div><div class="sb-v neg">4 152,12</div><div class="sb-d">01:00 UTC &middot; vol 8 691</div></div>
+  <div class="sb"><div class="sb-l">CDL / CWL / CML / CQL</div><div class="sb-v" style="color:#be1628">4 104,06</div><div class="sb-d">02:30 UTC &middot; vol 12 379!</div></div>
+  <div class="sb"><div class="sb-l">Zakres sesji Oct 6</div><div class="sb-v neg">&minus;48,06 pkt</div><div class="sb-d">CDH&rarr;CDL, spike</div></div>
+  <div class="sb"><div class="sb-l">PDH / CWH (Pon HIGH)</div><div class="sb-v" style="color:#7a5e08">4 170,31</div><div class="sb-d">Pon 08:15 UTC Ldn HIGH</div></div>
+  <div class="sb"><div class="sb-l">POC VP / Fib 0.5</div><div class="sb-v" style="color:#163e98">4 129,01</div><div class="sb-d">VAH 4 141 &nbsp;|&nbsp; VAL 4 120</div></div>
+  <div class="sb"><div class="sb-l">Cena teraz (~06 UTC)</div><div class="sb-v" style="color:#7a4c08">4 121,83</div><div class="sb-d">nad CWL +17,77 pkt</div></div>
+</div>
+
+<!-- ALERTS -->
+<div class="al-red">&#128308;&nbsp; CDH 4 152,12 ODRZUCONE (01:00 UTC) &rarr; SPIKE CWL 4 104,06 (02:30 UTC) &nbsp;&minus;48 pkt w 90 min! &nbsp;&#124;&nbsp; Vol spike 12 379 = natychmiastowe odbicie +34 pkt = INST. ABSORPCJA &nbsp;&#124;&nbsp; CWL = CDL = CML = CQL jednoczesnie!</div>
+<div class="al-blue">&#128309;&nbsp; nPOC 4 184,84 = niedobity POC (magnet w gore) &nbsp;&bull;&nbsp; PDH/CWH 4 170,31 (Pon HIGH) = kluczowy opor &nbsp;&bull;&nbsp; PWL/PML 4 110,69 = wsparcie tech. &nbsp;&bull;&nbsp; OTE SHORT: Fib 0.618 = 4 133,76 &nbsp;&bull;&nbsp; Fib NFP 1.272 = 4 097,97 (cel SHORT breakdown)</div>
+<div class="al-green">&#9679;&nbsp; Max Vol Pon: 24 243 vol @ 4135&ndash;4147 (14:00 UTC) = INST. BUY referencja &nbsp;&bull;&nbsp; BOS 4125 | CHoCH 4129 | FVG 4142 | LuxAlgo BOS 4140 &nbsp;&bull;&nbsp; WKO 4135,81 &nbsp;&bull;&nbsp; London 07:00 UTC decyduje o kierunku tygodnia!</div>
+
+<!-- PREV SESSION -->
+<div class="prev-sect">
+  <div class="prev-hdr">
+    <span>&#9632; STATUS STREF POPRZEDNIEJ SESJI (PON 05.10.2026) &mdash; WYCZERPANIE WOLUMENOWE</span>
+    <div class="prev-leg">
+      <span class="leg la">&#11044; AKTYWNA</span><span class="leg lp">&#11044; CZESCIOWO</span><span class="leg le">&#11044; WYCZERPANA</span><span class="leg ls">&#11044; WSPARCIE</span>
+    </div>
+  </div>
+  <div class="prev-row ra">
+    <div class="pr-lvl">4 170,31</div>
+    <div class="pr-name">PDH / CWH<br>Londyn HIGH Pon</div>
+    <div class="pr-desc">Nie testowane dzis &mdash; cena max 4 152,12 (18 pkt pod PDH); strefa SELL z vol 10 960 (Pon 08:15 UTC); kazde odbicie do tej strefy = SELL okazja dla Sc.A</div>
+    <div class="pr-vol">&mdash;</div>
+    <div class="pr-stat sa">&#11044; AKTYWNA &mdash; glowny opor</div>
+  </div>
+  <div class="prev-row ra">
+    <div class="pr-lvl">4 162,96</div>
+    <div class="pr-name">Asian HIGH Pon<br>opor 2. rzedu</div>
+    <div class="pr-desc">Asia HIGH Monday 01:45 UTC (vol 6 632); dzis CDH 4152 = 11 pkt ponizej; strefa dystrybucji 4155&ndash;4163 nadal aktywna, nie testowana dzis przez Wt. sesje</div>
+    <div class="pr-vol">6 632</div>
+    <div class="pr-stat sa">&#11044; AKTYWNA &mdash; opor wtorny</div>
+  </div>
+  <div class="prev-row rp">
+    <div class="pr-lvl">4 152,12</div>
+    <div class="pr-name">CDH Oct 6 (dzis!)<br>VAH Pon VP</div>
+    <div class="pr-desc">Testowane dzis 01:00 UTC: H=4 152,12 vol 8 691 &rarr; NATYCHMIASTOWE ODRZUCENIE; drop &minus;48 pkt w 90 min; strefa SELL potwierdzona wysokim vol; kazdy powrot = SHORT trigger</div>
+    <div class="pr-vol bv">8 691</div>
+    <div class="pr-stat sp">&#11044; CZESCIOWO &mdash; odrzucone vol</div>
+  </div>
+  <div class="prev-row rp">
+    <div class="pr-lvl">4 135–4 147</div>
+    <div class="pr-name">Max Vol Pon<br>akumulacja inst.</div>
+    <div class="pr-desc">Max Vol Pon = 24 243 vol (14:00 UTC) @ 4135&ndash;4147; testowane w konsolidacji wieczornej wielokrotnie; nadal magnet/wsparcie jesli London nie przelami VAL 4120</div>
+    <div class="pr-vol bv">24 243!</div>
+    <div class="pr-stat sp">&#11044; CZESCIOWO &mdash; konsolidacja</div>
+  </div>
+  <div class="prev-row re">
+    <div class="pr-lvl">4 123,28</div>
+    <div class="pr-name">CDL Pon / PDL<br>wyczerpana!</div>
+    <div class="pr-desc">2x sweep PDL Pon (04:15 i 15:15 UTC); spike nocny Oct 6 PRZEBIL do 4 104,06 &rarr; zlecenia BUY przy 4123 wypelnione przez vol 12 379; poziom osłabiony jako wsparcie</div>
+    <div class="pr-vol bv">13 682</div>
+    <div class="pr-stat se">&#11044; WYCZERPANA &mdash; spike przebil!</div>
+  </div>
+  <div class="prev-row rs">
+    <div class="pr-lvl">4 104,06</div>
+    <div class="pr-name">CWL / CDL / CML / CQL<br>4&times; ZBIEZNOSC!!!</div>
+    <div class="pr-desc">Spike 02:30 UTC Oct 6: L=4 104,06 vol 12 379 &rarr; odbicie +34 pkt do 4138 w 1 barze; 4-krotna zbieznosc: CDL+CWL+CML+CQL = EKSTREMALNY support instytucjonalny; double bottom jesli trzyma</div>
+    <div class="pr-vol bv">12 379!</div>
+    <div class="pr-stat ss">&#11044; WSPARCIE SILNE 4&times;!</div>
+  </div>
+</div>
+
+<!-- ROW 1 — 4 EQUAL COLUMNS -->
+<div class="row1">
+
+  <!-- COL 1: VP HISTOGRAM -->
+  <div class="r1c">
+    <div class="ct">VP Histogram &mdash; Profil Wolumenu</div>
+    <div class="hrow"><div class="hl red">4 170,31</div><div class="hbw"><div class="hb sell" style="width:76%"></div></div><div class="hv bv">~11k</div><div class="htag ts">SELL PDH</div></div>
+    <div class="hrow"><div class="hl red">4 162,96</div><div class="hbw"><div class="hb sell" style="width:62%"></div></div><div class="hv bv">~6,6k</div><div class="htag ts">Asia H Pon</div></div>
+    <div class="hrow"><div class="hl red">4 158–162</div><div class="hbw"><div class="hb dist" style="width:86%"></div></div><div class="hv bv">~9,5k</div><div class="htag td">DIST Ldn</div></div>
+    <div class="hrow"><div class="hl red">4 152,12</div><div class="hbw"><div class="hb sell" style="width:58%"></div></div><div class="hv bv">8 691</div><div class="htag ts">CDH REJ!</div></div>
+    <div class="hrow"><div class="hl red">4 148–152</div><div class="hbw"><div class="hb dist" style="width:93%"></div></div><div class="hv bv">~9k</div><div class="htag td">DIST Asia</div></div>
+    <div class="hrow"><div class="hl">4 141,84</div><div class="hbw"><div class="hb fvg" style="width:30%"></div></div><div class="hv">~3k</div><div class="htag tf">Fib 0.786</div></div>
+    <div class="hrow"><div class="hl">4 138–142</div><div class="hbw"><div class="hb fvg" style="width:40%"></div></div><div class="hv">~5k</div><div class="htag tf">FVG zona</div></div>
+    <div class="hrow"><div class="hl">4 133,76</div><div class="hbw"><div class="hb fvg" style="width:26%"></div></div><div class="hv">~2k</div><div class="htag tf">Fib 0.618</div></div>
+    <div class="hrow"><div class="hl poc">4 129,01</div><div class="hbw"><div class="hb neu" style="width:100%"></div></div><div class="hv gv">POC</div><div class="htag tpoc">POC!</div></div>
+    <div class="hrow"><div class="hl">4 128,09</div><div class="hbw"><div class="hb neu" style="width:95%"></div></div><div class="hv">~7k</div><div class="htag tf">Fib 0.500</div></div>
+    <div class="hrow"><div class="hl">4 124–127</div><div class="hbw"><div class="hb buy" style="width:52%"></div></div><div class="hv gv">~5k</div><div class="htag tb">kons.</div></div>
+    <div class="hrow"><div class="hl grn">4 120,70</div><div class="hbw"><div class="hb buy" style="width:44%"></div></div><div class="hv gv">~4k</div><div class="htag tb">VAL &darr;</div></div>
+    <div class="hrow"><div class="hl grn">4 110,69</div><div class="hbw"><div class="hb buy" style="width:36%"></div></div><div class="hv gv">~2k</div><div class="htag tb">PWL/PML</div></div>
+    <div class="hrow"><div class="hl grn" style="font-size:9px;font-weight:700">4 104,06</div><div class="hbw"><div class="hb akum" style="width:84%"></div></div><div class="hv gv">12 379!</div><div class="htag ta">CWL/CML!</div></div>
+    <div class="hleg">
+      <div class="hlr"><span class="hln">SELL / DIST</span><span class="hlv" style="color:#b81828">4 148–4 170</span><span class="hls">dystrybucja</span></div>
+      <div class="hlr"><span class="hln">FVG / luka cenowa</span><span class="hlv">4 122–4 148</span><span class="hls">cel powrotu</span></div>
+      <div class="hlr"><span class="hln">POC (magnet VP)</span><span class="hlv" style="color:#163898">4 129,01</span><span class="hls">fair value</span></div>
+      <div class="hlr"><span class="hln">BUY / AKUM</span><span class="hlv" style="color:#0e6838">4 104–4 122</span><span class="hls">absorpcja</span></div>
+      <div class="hlr"><span class="hln">Max Vol Pon ref.</span><span class="hlv" style="color:#0e6838">24 243!</span><span class="hls">4135–4147</span></div>
+    </div>
+  </div>
+
+  <!-- COL 2: FIBONACCI + KEY LEVELS -->
+  <div class="r1c">
+    <div class="ct">Fibonacci &mdash; CDH &rarr; CDL (48,06 pkt)</div>
+    <div class="fib-hdr">CDH 4 152,12 &rarr; CDL 4 104,06 &nbsp;|&nbsp; Zakres: 48,06 pkt</div>
+    <div class="fibr"><div class="fibl">1.000</div><div class="fibbw"><div class="fibb f1" style="width:100%"></div></div><div class="fibp">4 152,12</div><div class="fibn">CDH — odrzucone!</div></div>
+    <div class="fibr"><div class="fibl">0.786</div><div class="fibbw"><div class="fibb f786" style="width:78.6%"></div></div><div class="fibp">4 141,84</div><div class="fibn">VAH VP (opor)</div></div>
+    <div class="fibr"><div class="fibl">0.705</div><div class="fibbw"><div class="fibb f705" style="width:70.5%"></div></div><div class="fibp">4 137,94</div><div class="fibn">OTE SHORT — gorna</div></div>
+    <div class="fibr"><div class="fibl">0.618</div><div class="fibbw"><div class="fibb f618" style="width:61.8%"></div></div><div class="fibp">4 133,76</div><div class="fibn">OTE SHORT — entry!</div></div>
+    <div class="fibr"><div class="fibl">0.500</div><div class="fibbw"><div class="fibb f5" style="width:50%"></div></div><div class="fibp">4 128,09</div><div class="fibn">EQ = POC area</div></div>
+    <div class="fibr"><div class="fibl">0.382</div><div class="fibbw"><div class="fibb f382" style="width:38.2%"></div></div><div class="fibp">4 122,42</div><div class="fibn">TP1 SHORT / resist.</div></div>
+    <div class="fibr"><div class="fibl">0.236</div><div class="fibbw"><div class="fibb f236" style="width:23.6%"></div></div><div class="fibp">4 115,40</div><div class="fibn">PWL–PML zona</div></div>
+    <div class="fibr"><div class="fibl">0.000</div><div class="fibbw"><div class="fibb f0" style="width:3%"></div></div><div class="fibp">4 104,06</div><div class="fibn">CDL = CWL = CML!</div></div>
+    <div class="fib-curr">&#9654; CENA: 4 121,83 &nbsp;|&nbsp; miedzy Fib 0.236 (4115) a 0.382 (4122)</div>
+
+    <div style="margin-top:12px">
+      <div class="kl-t">Poziomy Kluczowe (z VP + Wskaznikow)</div>
+      <div class="klrow"><span class="kln">&#9650; SELL PDH/CWH</span><span class="klv neg">4 170,31</span><span class="kld">&minus;49 pkt</span></div>
+      <div class="klrow"><span class="kln">&#9650; nPOC niedobity</span><span class="klv" style="color:#9a5e08">4 184,84</span><span class="kld">magnet</span></div>
+      <div class="klrow"><span class="kln">&#9650; CDH odrzucone</span><span class="klv neg">4 152,12</span><span class="kld">&minus;30 pkt</span></div>
+      <div class="klrow"><span class="kln">&#9650; VAH VP / Fib 0.786</span><span class="klv" style="color:#983010">4 141,84</span><span class="kld">&minus;20 pkt</span></div>
+      <div class="klrow"><span class="kln">&#9650; Fib 0.618 OTE SHORT</span><span class="klv" style="color:#b84828">4 133,76</span><span class="kld">&minus;12 pkt</span></div>
+      <div class="klrow"><span class="kln">&#9654; POC VP / Fib 0.5</span><span class="klv" style="color:#163898">4 128–4 129</span><span class="kld">&minus;7 pkt</span></div>
+      <div class="klrow" style="background:#fffce0"><span class="kln" style="font-weight:700">&#9654; CENA TERAZ</span><span class="klv" style="color:#7a4c08;font-size:15px">4 121,83</span><span class="kld">±0</span></div>
+      <div class="klrow"><span class="kln">&#9660; VAL VP</span><span class="klv" style="color:#0e6838">4 120,70</span><span class="kld">&minus;1 pkt</span></div>
+      <div class="klrow"><span class="kln">&#9660; PWL / PML</span><span class="klv" style="color:#0e3878">4 110,69</span><span class="kld">&minus;11 pkt</span></div>
+      <div class="klrow" style="background:#eef5ff"><span class="kln" style="font-weight:700">&#9660; CWL/CDL/CML/CQL!</span><span class="klv" style="color:#063888;font-size:15px">4 104,06</span><span class="kld">4&times;!</span></div>
+      <div class="klrow"><span class="kln">&#9660; Fib NFP 1.272</span><span class="klv" style="color:#820818">4 097,97</span><span class="kld">cel SHORT</span></div>
+    </div>
+  </div>
+
+  <!-- COL 3: CHRONOLOGIA -->
+  <div class="r1c">
+    <div class="ct">Chronologia M15 &mdash; Narracja Sesji</div>
+    <div class="chr-sep">&#9642; POPRZEDNIA SESJA &mdash; PON 05.10.2026</div>
+    <div class="cr"><div class="ct2">04-10 22:00</div><div class="cx"><b>WKO Open:</b> O=4 135,81 — Weekly Open, start tygodnia, poziom referencyjny</div><div class="cv nv">~2,8k</div></div>
+    <div class="cr"><div class="ct2">05-10 00:00</div><div class="cx"><b>Asia start Pon:</b> vol rosnie do 9 007, impuls z 4142&rarr;4152; zlecenia inst.</div><div class="cv gv">9 007</div></div>
+    <div class="cr"><div class="ct2">05-10 01:45</div><div class="cx"><b>ASIA HIGH Pon:</b> H=4 162,96 vol 6 632 — szczyt azjatyckiej dystrybucji!</div><div class="cv nv">6 632</div></div>
+    <div class="cr"><div class="ct2">05-10 02:30</div><div class="cx"><b>Azja drop:</b> vol 12 452 — dystrybucja od Asia HIGH! L=4 139 — INST. SELL</div><div class="cv bv">12 452</div></div>
+    <div class="cr"><div class="ct2">05-10 04:15</div><div class="cx"><b>JUDAS DOWN:</b> L=4 124,74 vol 7 197 — sweep PDL przed London! Falszywy ruch</div><div class="cv bv">7 197</div></div>
+    <div class="cr"><div class="ct2">05-10 08:15</div><div class="cx"><b>LDN HIGH (PDH/CWH):</b> H=4 170,31 vol 10 960 — CDH tygodnia, szczyt Pon!</div><div class="cv bv">10 960</div></div>
+    <div class="cr"><div class="ct2">05-10 12:00</div><div class="cx"><b>NY HIGH (fail CDH):</b> H=4 167,05 vol 8 745 — fail CDH retest o &minus;3 pkt = WEAKNESS</div><div class="cv nv">8 745</div></div>
+    <div class="cr"><div class="ct2">05-10 13:30</div><div class="cx"><b>NY DUMP start:</b> vol 18 774 — drop z 4152&rarr;4135 w 15 min; INST. SPRZEDAZ!</div><div class="cv bv">18 774</div></div>
+    <div class="cr"><div class="ct2">05-10 14:00</div><div class="cx"><b>MAX VOL Pon: V=24 243!</b> H=4146, L=4135 — decyzja inst. AKUM vs DIST?</div><div class="cv bv">24 243!</div></div>
+    <div class="cr"><div class="ct2">05-10 15:15</div><div class="cx"><b>CDL Pon / 2. SWEEP PDL:</b> L=4 123,28 vol 13 682 — klasyczny ICT double dip!</div><div class="cv bv">13 682</div></div>
+    <div class="cr"><div class="ct2">05-10 20:45</div><div class="cx">EOD konsolidacja: 4125–4143, vol maleje; C=4 139,11</div><div class="cv nv">~3–5k</div></div>
+    <div class="chr-sep-b">&#9642; OBECNA SESJA &mdash; WT 06.10.2026 (po Azji)</div>
+    <div class="cr"><div class="ct2">05-10 22:00</div><div class="cx"><b>Azja Oct 6 open:</b> O=4 139,11 — spokojny start, vol &lt;2k (cicha sesja)</div><div class="cv nv">~1,5k</div></div>
+    <div class="cr"><div class="ct2">06-10 00:00</div><div class="cx"><b>Nowy dzien:</b> vol rosnie do 5 194, cena 4133&rarr;4144 (momentum w gore)</div><div class="cv nv">5 194</div></div>
+    <div class="cr"><div class="ct2">06-10 01:00</div><div class="cx"><b class="neg">CDH TEST! H=4 152,12 vol 8 691</b> — CDH osiagniety &rarr; natychmiastowe odrzucenie!</div><div class="cv bv">8 691</div></div>
+    <div class="cr"><div class="ct2">06-10 01:15</div><div class="cx"><b>DUMP z CDH: &minus;17 pkt</b> w 1 barze, L=4 135,45 vol 8 469 — INST. SELL aktywne!</div><div class="cv bv">8 469</div></div>
+    <div class="cr"><div class="ct2">06-10 02:00</div><div class="cx">Kontynuacja drop: 4133&rarr;4126, vol 4 611 (male, brak absorpcji pod)</div><div class="cv nv">4 611</div></div>
+    <div class="cr"><div class="ct2">06-10 02:30</div><div class="cx"><b class="neg">&#128308; SPIKE CWL! L=4 104,06 vol 12 379</b> — CDL=CWL=CML=CQL jednoczesnie!</div><div class="cv bv">12 379!</div></div>
+    <div class="cr"><div class="ct2">06-10 02:45</div><div class="cx"><b>ODBICIE: +34 pkt!</b> O=4121, H=4 138,65 vol 8 167 — silna inst. absorpcja!</div><div class="cv gv">8 167</div></div>
+    <div class="cr"><div class="ct2">06-10 03–06 UTC</div><div class="cx">Konsolidacja 4119–4133, vol 3–5k; cena przy VAL 4 120,70</div><div class="cv nv">3–5k</div></div>
+    <div class="cr"><div class="ct2">06-10 05:51</div><div class="cx"><b>TERAZ: 4 121,83</b> — Fib 0.382 area (4122) — przy dolnej granicy retracement!</div><div class="cv nv">~1,4k</div></div>
+  </div>
+
+  <!-- COL 4: BIAS + STREFY ZLECEN -->
+  <div class="r1c">
+    <div class="ct">Strefy Zlecen VP &mdash; Buy / Sell</div>
+
+    <div style="background:#fff0f0;border:2px solid #d05060;border-radius:5px;padding:9px 11px;margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:700;color:#800818;margin-bottom:6px">&#9650; SELL ZONA — DYSTRYBUCJA (4148–4170)</div>
+      <div style="font-size:10.5px;color:#4a1828;line-height:1.9">
+        CDH 4 152,12 — odrzucone (01:00 UTC vol 8 691)<br>
+        Asia HIGH Pon 4 162,96 — dystrybucja (vol 6 632)<br>
+        Ldn HIGH Pon / PDH 4 170,31 (vol 10 960)<br>
+        <b>Trigger SHORT:</b> powrot do 4133–4141 z vol &ge;8k
+      </div>
+    </div>
+
+    <div style="background:#f0f0ff;border:2px solid #6080d0;border-radius:5px;padding:9px 11px;margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:700;color:#082868;margin-bottom:6px">&#9654; FVG / LUKA CENOWA (4122–4148)</div>
+      <div style="font-size:10.5px;color:#182858;line-height:1.9">
+        Brak wolumenu w tej strefie = predkosc ceny<br>
+        POC VP 4 129,01 = magnet / fair value<br>
+        Fib 0.5 = 4 128,09 (EQ sredniej sesji)<br>
+        <b>Cel powrotu:</b> FVG wypelnienie przy odbiciu
+      </div>
+    </div>
+
+    <div style="background:#f0fff4;border:2px solid #48b068;border-radius:5px;padding:9px 11px;margin-bottom:10px">
+      <div style="font-size:10.5px;font-weight:700;color:#085828;margin-bottom:6px">&#9660; BUY ZONA — AKUMULACJA (4104–4122)</div>
+      <div style="font-size:10.5px;color:#183828;line-height:1.9">
+        CWL / CDL / CML / CQL 4 104,06 — spike absorpcja<br>
+        VAL VP 4 120,70 — dolna granica value area<br>
+        PWL / PML 4 110,69 — wsparcie historyczne<br>
+        <b>Trigger LONG:</b> retest 4104–4118 pin bar + vol
+      </div>
+    </div>
+
+    <div class="bias-box">
+      <div class="bb-t">BIAS LONDON 07:00 UTC &mdash; Decyzja</div>
+      <div class="bb-row">
+        <span class="neg">&#9650;</span> VAH 4 141 przelamane vol &rarr; <b>LONG sygnał</b><br>
+        <span class="pos">&#9660;</span> Close pod VAL 4 120 vol &rarr; <b>SHORT trigger</b><br>
+        <span style="color:#0840a0">&#9679;</span> CWL 4 104 hold &rarr; <b>double bottom LONG</b><br>
+        <span style="color:#800818">&#9679;</span> CWL 4 104 break &gt;10k vol &rarr; <b>cel 4 097!</b>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;background:#fff8e8;border:1.5px solid #d0a828;border-radius:4px;padding:8px 10px">
+      <div style="font-size:10px;font-weight:700;color:#604808;margin-bottom:5px">nPOC 4 184,84 — magnet dlugoterminowy</div>
+      <div style="font-size:10px;color:#504020;line-height:1.8">Jesli trend odwroci: cena "musi" wroic do ~4185 (niedobity POC z poprzedniego tygodnia). Przy Sc.B LONG TP3 = 4185 jesli CWH 4170 przelamane.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ROW 2 — SCENARIOS 4 COLS -->
+<div class="row2">
+
+  <!-- SC A: SHORT OTE -->
+  <div class="sc">
+    <div class="sc-hdr">
+      <div class="scl sca-c">A</div>
+      <div class="sc-name">SHORT z OTE — CDH odrzucone</div>
+      <span class="sc-tag ts2">SHORT</span>
+    </div>
+    <div class="sc-body">
+      <p>CDH 4 152,12 testowane i odrzucone (vol 8 691). Kazde odbicie London do <b>Fib 0.618–0.786 (4133–4141)</b> = OTE SHORT entry. Bias tygodniowy BEARISH: fail CDH retest + nowe CDL kazdej sesji. London korekta = SHORT z dobrego poziomu.</p>
+      <div class="sc-trig"><b>Trigger:</b> M15 BOS/CHoCH w dol od 4133–4141 + vol &ge;8k LUB pin bar odrzucenia od Fib 0.618 z vol &ge;1.5&times; avg</div>
+      <div class="g2">
+        <div class="ebox"><div class="ebl">Entry SHORT</div><div class="ebv neg">4 133–4 141</div><div class="ebr">Fib 0.618–0.786</div></div>
+        <div class="ebox"><div class="ebl">Stop Loss</div><div class="ebv neg">4 147</div><div class="ebr">nad Fib 0.786 +5 pkt</div></div>
+      </div>
+      <div class="tprow"><span class="tpn">TP1 — Fib 0.382</span><span class="tpv pos">4 122,42</span><span class="tpp">~&minus;15 pkt | R:R 1:1,1</span></div>
+      <div class="tprow"><span class="tpn">TP2 — PWL / PML</span><span class="tpv pos">4 110,69</span><span class="tpp">~&minus;27 pkt | R:R 1:1,9</span></div>
+      <div class="tprow"><span class="tpn">TP3 — Fib NFP 1.272</span><span class="tpv pos">4 097,97</span><span class="tpp">~&minus;39 pkt | R:R 1:2,8</span></div>
+      <div style="margin-top:8px;font-size:9.5px;color:#507090">SL ~6–14 pkt. TP3 tylko jesli CWL 4104 przebite z vol.<br><b>Invalidacja:</b> M15 close powyzej CDH 4 152,12.</div>
+    </div>
+  </div>
+
+  <!-- SC B: LONG CWL -->
+  <div class="sc">
+    <div class="sc-hdr">
+      <div class="scl scb-c">B</div>
+      <div class="sc-name">LONG — CWL 4104 double bottom</div>
+      <span class="sc-tag tl">LONG</span>
+    </div>
+    <div class="sc-body">
+      <p>CWL 4 104,06 = CDL + CWL + CML + CQL = <b>4-krotna zbieznosc</b> = ekstremalny inst. support. Spike vol 12 379 absorbowany natychmiastowo (+34 pkt bounce). Jesli London da HH nad 4121 z vol — LONG z retestow CWL/PWL.</p>
+      <div class="sc-trig"><b>Trigger:</b> M15 HH (wyzszy szczyt) w London z vol &ge;7k OD VAL 4120 LUB retest 4104–4115 z pin bar + bullish BOS M15</div>
+      <div class="g2">
+        <div class="ebox"><div class="ebl">Entry LONG</div><div class="ebv pos">4 104–4 118</div><div class="ebr">CWL / PWL 4110 retest</div></div>
+        <div class="ebox"><div class="ebl">Stop Loss</div><div class="ebv neg">4 099</div><div class="ebr">pod CWL &minus;5 pkt</div></div>
+      </div>
+      <div class="tprow"><span class="tpn">TP1 — Fib 0.382</span><span class="tpv pos">4 122,42</span><span class="tpp">+~13–22 pkt | R:R 1:1,3</span></div>
+      <div class="tprow"><span class="tpn">TP2 — POC / Fib 0.5</span><span class="tpv pos">4 128–4 129</span><span class="tpp">+~19–28 pkt | R:R 1:2,0</span></div>
+      <div class="tprow"><span class="tpn">TP3 — VAH / Fib 0.786</span><span class="tpv pos">4 141,84</span><span class="tpp">+~33–42 pkt | R:R 1:3,0</span></div>
+      <div style="margin-top:8px;font-size:9.5px;color:#507090">Warunek: CWL 4104 MUSI trzymac (brak M15 close ponizej).<br><b>Invalidacja:</b> new low ponizej 4104 z vol &gt;10k = SHORT!</div>
+    </div>
+  </div>
+
+  <!-- SC C: OBS -->
+  <div class="sc">
+    <div class="sc-hdr">
+      <div class="scl scc-c">C</div>
+      <div class="sc-name">Obserwacja — Range / London kierunek</div>
+      <span class="sc-tag to">&#128065; OBS</span>
+    </div>
+    <div class="sc-body">
+      <p>Cena przy VAL 4120 po spike i bouncie. Brak jasnego kierunku przed London open (07:00 UTC). Konsolidacja 4104–4141 mozliwa. Czekaj na <b>London direction signal</b> w pierwszych 90 minutach.</p>
+      <div class="sc-trig"><b>Decyzja London 07:00–08:30 UTC:</b><br>
+      VAH 4141 break + vol &ge;8k = Sc.B LONG aktywny<br>
+      Close pod VAL 4120 + vol &ge;7k = Sc.A SHORT aktywny</div>
+
+      <div style="background:#f8f4e0;border:2px solid #c8a020;border-radius:4px;padding:8px 10px;margin:7px 0;font-size:10.5px;color:#5a3e08;line-height:1.8">
+        <b>Kluczowe pytanie:</b><br>
+        CWL 4104 = trwale dno czy pauza?<br><br>
+        <b style="color:#0e6838">&#9679; 4104 trzyma</b> &rarr; double bottom &rarr; LONG do 4128–4141<br>
+        <b style="color:#980e18">&#9679; 4104 break vol&gt;10k</b> &rarr; CWL wyczerpane &rarr; 4097!
+      </div>
+
+      <div class="tprow"><span class="tpn">Opor 1: VAH VP</span><span class="tpv" style="color:#9a2e10">4 141,03</span><span class="tpp">Fib 0.786</span></div>
+      <div class="tprow"><span class="tpn">Opor 2: CDH (rej.)</span><span class="tpv neg">4 152,12</span><span class="tpp">SELL zona</span></div>
+      <div class="tprow"><span class="tpn">Wsparcie 1: VAL VP</span><span class="tpv" style="color:#0e6838">4 120,70</span><span class="tpp">dolna VA</span></div>
+      <div class="tprow"><span class="tpn">Wsparcie 2: PWL</span><span class="tpv" style="color:#0e3878">4 110,69</span><span class="tpp">hist. wsparcie</span></div>
+      <div class="tprow"><span class="tpn">Kluczowy: CWL/CDL</span><span class="tpv" style="color:#063888;font-size:13px;font-weight:700">4 104,06</span><span class="tpp">MUST HOLD!</span></div>
+    </div>
+  </div>
+
+  <!-- COL 4: WNIOSKI -->
+  <div class="sc wn-col">
+    <div class="wn-t">Wnioski &mdash; VP Londyn 06.10.2026</div>
+    <ul class="wn-l">
+      <li class="r"><b>CDH 4152 ODRZUCONE:</b> cena testowala CDH (vol 8691) i natychmiast spadla &minus;48 pkt — bias BEARISH dominuje</li>
+      <li class="p"><b>CWL 4104 = 4× zbieznosc:</b> CDL+CWL+CML+CQL jednoczesnie — spike vol 12379 z bouncem +34 pkt = ekstremalny inst. support</li>
+      <li class="g"><b>Absorpcja potwierdzona:</b> bar po spike H=4138 vol 8167 = silny buying; 3h po spike bez nowego low</li>
+      <li class="r"><b>Cena przy VAL VP:</b> 4121,83 = zaledwie +1,1 pkt nad VAL 4120,70 — ponizej fair value VP</li>
+      <li class="y"><b>FVG 4122–4148:</b> brak vol w strefie = predkosc przy odbiciu; London moze wypelnic FVG do Fib 0.618 (4133)</li>
+      <li><b>nPOC 4184,84:</b> niedobity POC z tygodnia — magnet dlugoterm. przy scenariuszu odbicia</li>
+      <li class="r"><b>Sc.A SHORT preferred:</b> powrot do OTE 4133–4141 bez HH nad CDH 4152 &rarr; SHORT, R:R 1:2,8, cel 4097</li>
+      <li class="g"><b>Sc.B LONG kontrar.:</b> retest 4104–4118 z pin bar + vol; CWL musi trzymac &ge;2 swiece M15</li>
+      <li class="y"><b>London 07:00 UTC:</b> VAH 4141 break = LONG signal; close pod VAL 4120 = SHORT; patrzec vol na przelamaniu &gt;8k</li>
+    </ul>
+  </div>
+</div>
+
+<div class="foot">
+  ICT / SMC &nbsp;&middot;&nbsp; VP Londyn [06.10.2026 Wt.] &nbsp;&middot;&nbsp; CDH Rejected 4 152,12 | Spike CWL 4 104,06 (CML+CQL) | Bounce +34 pkt | Cena 4 121,83 (~06:00 UTC) &nbsp;|&nbsp; Fib CDH&rarr;CDL: 0.382=4122 | 0.5=4128 | 0.618=4133 | 0.786=4141 &nbsp;|&nbsp; Wylacznie edukacja &mdash; nie doradztwo inwestycyjne
+</div>
+
+</div></body></html>
