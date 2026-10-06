@@ -38,11 +38,13 @@ input int           InpSlippage        = 20;          // Slippage w punktach
 input bool          InpDryRun          = false;       // Tryb testowy: loguj bez zlecen
 
 input group         "=== Potwierdzenie wejscia ==="
-input bool          InpRequireCandle   = true;        // Wymagaj swiecy potwierdzenia w strefie
-input bool          InpRequireVolume   = false;       // Wymagaj wolumenu > InpVolMult x MA(20)
+input bool          InpCandleM15       = true;        // Swieca kierunkowa M15 (ostatnia zamknieta)
+input bool          InpCandleM5        = false;       // Swieca kierunkowa M5  (ostatnia zamknieta)
+input bool          InpCandleM3        = false;       // Swieca kierunkowa M3  (ostatnia zamknieta)
+input bool          InpRequireVolume   = false;       // Wymagaj wolumenu > InpVolMult x MA(20) na M15
 input double        InpVolMult         = 1.2;         // Krotnosc sredniej wolumenu
 input int           InpMaxSpreadPts    = 40;          // Max spread w punktach (0 = bez limitu)
-input int           InpZoneMaxBars     = 8;           // Maks. barow w strefie bez potwierdzenia
+input int           InpZoneMaxBars     = 8;           // Maks. barow M15 w strefie bez potwierdzenia
 
 input group         "=== Zarzadzanie pozycja ==="
 input bool          InpMoveSLtoBE      = true;        // Przesun SL na BE po TP1
@@ -344,11 +346,10 @@ void CheckZoneEntry()
       // Sprawdz spread
       if(!CheckSpread()) return;
 
-      // Sprawdz potwierdzenie swiecy (ostatnia zamknieta M15)
-      if(InpRequireCandle)
-        {
-         if(!CandleConfirms()) return;
-        }
+      // Sprawdz potwierdzenie swiecowe na wybranych TF (wszystkie wlaczone musza potwierdzic)
+      if(InpCandleM15 && !CandleConfirmsTF(PERIOD_M15, "M15")) return;
+      if(InpCandleM5  && !CandleConfirmsTF(PERIOD_M5,  "M5"))  return;
+      if(InpCandleM3  && !CandleConfirmsTF(PERIOD_M3,  "M3"))  return;
 
       // Sprawdz wolumen
       if(InpRequireVolume)
@@ -377,40 +378,35 @@ bool CheckSpread()
   }
 
 //+------------------------------------------------------------------+
-//| Sprawdza potwierdzenie swiecowe (ostatnia zamknieta M15)         |
+//| Sprawdza potwierdzenie swiecowe na podanym TF (ostatnia zamk.)  |
+//| Warunek: swieca kierunkowa (bearish/bullish) na danym TF        |
 //+------------------------------------------------------------------+
-bool CandleConfirms()
+bool CandleConfirmsTF(ENUM_TIMEFRAMES tf, string tfName)
   {
    bool isLong = (g_sig.direction == "LONG");
-   // Ostatnia zamknieta swieca (index 1)
-   double prevOpen  = iOpen(g_brokerSym,  PERIOD_M15, 1);
-   double prevClose = iClose(g_brokerSym, PERIOD_M15, 1);
-   double prevHigh  = iHigh(g_brokerSym,  PERIOD_M15, 1);
-   double prevLow   = iLow(g_brokerSym,   PERIOD_M15, 1);
 
-   if(prevOpen == 0 || prevClose == 0) return false;
+   double prevOpen  = iOpen(g_brokerSym,  tf, 1);
+   double prevClose = iClose(g_brokerSym, tf, 1);
 
-   bool bearish = (prevClose < prevOpen);
-   bool bullish = (prevClose > prevOpen);
+   if(prevOpen == 0 || prevClose == 0)
+     {
+      if(InpVerboseLog) PrintFormat("VP EA: brak danych swieca %s - przepuszczam", tfName);
+      return true;  // brak danych = nie blokuj wejscia
+     }
 
-   // Swieca musi byc kierunkowa
-   bool ok = isLong ? bullish : bearish;
+   bool confirmed = isLong ? (prevClose > prevOpen) : (prevClose < prevOpen);
 
-   // Przynajmniej czen gorny (SHORT) lub dolny (LONG) musi byc w strefie
-   bool touchZone = isLong
-      ? (prevLow >= g_sig.entry_from && prevLow <= g_sig.entry_to)
-      : (prevHigh >= g_sig.entry_from && prevHigh <= g_sig.entry_to);
-
-   if(!ok)
+   if(!confirmed)
      {
       if(InpVerboseLog)
-         PrintFormat("VP EA: swieca %.2f->%.2f nie potwierdza %s - czekam", prevOpen, prevClose, g_sig.direction);
+         PrintFormat("VP EA: swieca %s O=%.2f C=%.2f nie potwierdza %s - czekam",
+                     tfName, prevOpen, prevClose, g_sig.direction);
       return false;
      }
 
    if(InpVerboseLog)
-      PrintFormat("VP EA: potwierdzenie swiecowe OK | O=%.2f C=%.2f %s",
-                  prevOpen, prevClose, isLong ? "BULLISH" : "BEARISH");
+      PrintFormat("VP EA: swieca %s OK | O=%.2f C=%.2f %s",
+                  tfName, prevOpen, prevClose, isLong ? "BULLISH" : "BEARISH");
    return true;
   }
 
