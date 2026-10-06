@@ -1,71 +1,69 @@
 //+------------------------------------------------------------------+
 //|                                                  TRW_VP_EA.mq5  |
 //|              Trading Room Workshop - Volume Profile Signal Bot   |
-//|                                                    v2.0          |
+//|                                                    v3.0          |
 //+------------------------------------------------------------------+
-//  Workflow:
-//    1. Claude zapisuje analize VP do Common\Files\TRW_VP\signal.json
-//    2. EA laduje strefe i czeka az cena wejdzie w zone entry
-//    3. Gdy cena w strefie: sprawdza potwierdzenie (swieca + spread + wolumen)
-//    4. Po potwierdzeniu: 3x Market Order (TP1/TP2/TP3)
-//    5. Po zamknieciu TP1 -> SL na breakeven
-//    6. Po zamknieciu TP2 -> trailing stop na TP3
+//  v3.0: 2 sloty SHORT+LONG jednoczesnie, auto-reload nowego ID
 //
-//  Stan EA:
-//    IDLE     -> brak sygnalu
-//    WATCHING -> sygnal zaladowany, cena poza strefa
-//    IN_ZONE  -> cena w strefie, czeka na potwierdzenie
-//    FILLED   -> pozycje otwarte, zarzadzanie
-//    DONE     -> zakonczono (OPENED/SKIPPED/ERROR)
+//  Sloty:
+//    slot 0 (magic InpMagic+0) — SHORT (lub pierwszy sygnal)
+//    slot 1 (magic InpMagic+1) — LONG  (lub drugi sygnal)
+//
+//  signal.json moze byc:
+//    { "direction":"SHORT", ... }                       — 1 sygnal
+//    [ { "direction":"SHORT", ... }, { ... } ]          — 2 sygnaly
+//
+//  Auto-reload: nowe ID w pliku -> reset slotu (chyba ze FILLED)
 //+------------------------------------------------------------------+
 #property copyright "Trading Room Workshop"
-#property version   "2.00"
-#property description "VP Signal Bot v2: monitoruje strefe, wchodzi rynkowo po potwierdzeniu"
+#property version   "3.00"
+#property description "VP Signal Bot v3: 2 sloty SHORT+LONG, auto-reload"
 
 #include <Trade\Trade.mqh>
 
 //--- Inputs
 input group         "=== Plik sygnalu ==="
-input string        InpSignalFolder    = "TRW_VP";    // Folder w Common\Files terminala
-input int           InpPollSeconds     = 3;           // Co ile sekund sprawdzac plik (s)
-input int           InpMaxSignalAgeMin = 120;         // Pomij sygnaly starsze niz X minut
+input string        InpSignalFolder    = "TRW_VP";
+input int           InpPollSeconds     = 3;
+input int           InpMaxSignalAgeMin = 120;
 
 input group         "=== Handel ==="
-input double        InpLotPerPos       = 0.01;        // Lot NA POZYCJE (lacznie 3x)
-input long          InpMagic           = 770003;      // Magic number VP bota
-input string        InpSymbolSuffix    = "";          // Sufiks brokera (puste = autowykrywanie)
-input int           InpSlippage        = 20;          // Slippage w punktach
-input bool          InpDryRun          = false;       // Tryb testowy: loguj bez zlecen
+input double        InpLotPerPos       = 0.01;
+input long          InpMagic           = 770003;   // slot0=770003, slot1=770004
+input string        InpSymbolSuffix    = "";
+input int           InpSlippage        = 20;
+input bool          InpDryRun          = false;
 
 input group         "=== Potwierdzenie wejscia ==="
-input bool          InpCandleM15       = true;        // Swieca kierunkowa M15 (ostatnia zamknieta)
-input bool          InpCandleM5        = false;       // Swieca kierunkowa M5  (ostatnia zamknieta)
-input bool          InpCandleM3        = false;       // Swieca kierunkowa M3  (ostatnia zamknieta)
-input bool          InpRequireVolume   = false;       // Wymagaj wolumenu > InpVolMult x MA(20) na M15
-input double        InpVolMult         = 1.2;         // Krotnosc sredniej wolumenu
-input int           InpMaxSpreadPts    = 40;          // Max spread w punktach (0 = bez limitu)
-input int           InpZoneMaxBars     = 8;           // Maks. barow M15 w strefie bez potwierdzenia
+input bool          InpCandleM15       = true;
+input bool          InpCandleM5        = false;
+input bool          InpCandleM3        = false;
+input bool          InpRequireVolume   = false;
+input double        InpVolMult         = 1.2;
+input int           InpMaxSpreadPts    = 40;
+input int           InpZoneMaxBars     = 8;
 
 input group         "=== Zarzadzanie pozycja ==="
-input bool          InpMoveSLtoBE      = true;        // Przesun SL na BE po TP1
-input bool          InpTrailAfterTP2   = true;        // Trailing po TP2
-input int           InpTrailStepPts    = 100;         // Krok trailingu w punktach
+input bool          InpMoveSLtoBE      = true;
+input bool          InpTrailAfterTP2   = true;
+input int           InpTrailStepPts    = 100;
 
 input group         "=== Telegram ==="
-input bool          InpTgEnabled       = true;                    // Wysylaj powiadomienia Telegram
-input string        InpTgChatId        = "-1003969670552";        // Chat ID
-input int           InpTgThreadId      = 1885;                    // Thread ID (1885=XAU, 7=newsy)
-input string        InpTgTokenFile     = "TRW_VP\\tg_token.txt"; // Plik z tokenem w Common\Files
+input bool          InpTgEnabled       = true;
+input string        InpTgChatId        = "-1003969670552";
+input int           InpTgThreadId      = 1885;
+input string        InpTgTokenFile     = "TRW_VP\\tg_token.txt";
 
 input group         "=== Diagnostyka ==="
 input bool          InpShowPanel       = true;
 input bool          InpVerboseLog      = true;
 
 //--- Stale
-#define VP_EA_VERSION "2.0"
+#define VP_EA_VERSION "3.0"
 #define COMMENT_TP1   "TRW_VP_TP1"
 #define COMMENT_TP2   "TRW_VP_TP2"
 #define COMMENT_TP3   "TRW_VP_TP3"
+#define MAX_SLOTS     2
 
 //--- Stany EA
 enum EVPState { STATE_IDLE, STATE_WATCHING, STATE_IN_ZONE, STATE_FILLED, STATE_DONE };
@@ -88,26 +86,47 @@ struct SVPSignal
    datetime sent_at;
   };
 
+//--- Slot = sygnal + stan
+struct SVPSlot
+  {
+   SVPSignal sig;
+   EVPState  state;
+   bool      tp1Hit;
+   bool      tp2Hit;
+   datetime  lastBarTime;
+   int       zoneBars;
+   datetime  zoneEntryTime;
+   string    brokerSym;
+   long      magic;
+   string    statusMsg;
+   string    statusCode;   // WATCHING/OPENED/SKIPPED/EXPIRED/ERROR/DRYRUN
+  };
+
 //--- Globals
-CTrade      g_trade;
-string      g_signalFile;
-string      g_doneFile;
-string      g_lastSignalId  = "";
-EVPState    g_state         = STATE_IDLE;
-string      g_tgToken       = "";
-SVPSignal   g_sig;
-string      g_brokerSym     = "";
-bool        g_tp1Hit        = false;
-bool        g_tp2Hit        = false;
-int         g_openCount     = 0;
-string      g_statusMsg     = "Oczekiwanie na sygnal...";
-datetime    g_lastBarTime   = 0;
-int         g_zoneBars      = 0;
-datetime    g_zoneEntryTime = 0;
-datetime    g_lastPoll      = 0;
+CTrade   g_trade;
+SVPSlot  g_slots[MAX_SLOTS];
+string   g_signalFile;
+string   g_doneFile;
+string   g_tgToken = "";
 
 //+------------------------------------------------------------------+
-//| Init                                                             |
+void InitSlot(int idx)
+  {
+   g_slots[idx].state         = STATE_IDLE;
+   g_slots[idx].tp1Hit        = false;
+   g_slots[idx].tp2Hit        = false;
+   g_slots[idx].lastBarTime   = 0;
+   g_slots[idx].zoneBars      = 0;
+   g_slots[idx].zoneEntryTime = 0;
+   g_slots[idx].brokerSym     = "";
+   g_slots[idx].magic         = InpMagic + idx;
+   g_slots[idx].statusMsg     = "Oczekiwanie...";
+   g_slots[idx].statusCode    = "IDLE";
+   g_slots[idx].sig.id        = "";
+   g_slots[idx].sig.direction = "";
+   g_slots[idx].sig.symbol    = "";
+  }
+
 //+------------------------------------------------------------------+
 int OnInit()
   {
@@ -122,32 +141,27 @@ int OnInit()
 
    FolderCreate(folder, FILE_COMMON);
 
-   g_trade.SetExpertMagicNumber(InpMagic);
    g_trade.SetDeviationInPoints(InpSlippage);
    g_trade.SetAsyncMode(false);
    g_trade.LogLevel(LOG_LEVEL_ERRORS);
+
+   for(int i = 0; i < MAX_SLOTS; i++) InitSlot(i);
 
    EventSetTimer(MathMax(1, InpPollSeconds));
 
    if(InpTgEnabled) LoadTgToken();
 
-   PrintFormat("TRW VP EA v%s start | konto %I64d (%s) | lot %.2f x3 | magic %I64d%s",
+   PrintFormat("TRW VP EA v%s start | konto %I64d | lot %.2f x3 | magic %I64d-%I64d%s",
                VP_EA_VERSION,
                AccountInfoInteger(ACCOUNT_LOGIN),
-               AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO ? "DEMO" : "REAL",
-               InpLotPerPos, InpMagic,
+               InpLotPerPos, InpMagic, InpMagic + MAX_SLOTS - 1,
                InpDryRun ? " | TRYB TESTOWY" : "");
 
-   if(!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED))
-      Print("UWAGA: handel algorytmiczny wylaczony w terminalu!");
-
-   PollSignal();
+   PollSignals();
    ShowPanel();
    return(INIT_SUCCEEDED);
   }
 
-//+------------------------------------------------------------------+
-//| Deinit                                                           |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
@@ -156,45 +170,72 @@ void OnDeinit(const int reason)
   }
 
 //+------------------------------------------------------------------+
-//| Timer — polling pliku i zarzadzanie                              |
-//+------------------------------------------------------------------+
 void OnTimer()
   {
-   if(g_state == STATE_IDLE || g_state == STATE_DONE)
-      PollSignal();
-
-   ManagePositions();
+   PollSignals();
+   for(int i = 0; i < MAX_SLOTS; i++) ManagePositions(i);
    ShowPanel();
   }
 
 //+------------------------------------------------------------------+
-//| OnTick — monitorowanie strefy i decyzja o wejsciu               |
-//+------------------------------------------------------------------+
 void OnTick()
   {
-   if(g_state == STATE_WATCHING || g_state == STATE_IN_ZONE)
-      CheckZoneEntry();
-
-   if(g_tp2Hit && InpTrailAfterTP2)
-      TrailTP3Position();
+   for(int i = 0; i < MAX_SLOTS; i++)
+     {
+      EVPState s = g_slots[i].state;
+      if(s == STATE_WATCHING || s == STATE_IN_ZONE)
+         CheckZoneEntry(i);
+     }
+   for(int i = 0; i < MAX_SLOTS; i++)
+      if(g_slots[i].tp2Hit && InpTrailAfterTP2)
+         TrailTP3Position(i);
   }
 
 //+------------------------------------------------------------------+
-//| Laduje sygnal z pliku jesli nowy                                 |
+//| Czyta signal.json i aktualizuje sloty                            |
 //+------------------------------------------------------------------+
-void PollSignal()
+void PollSignals()
   {
    if(!FileIsExist(g_signalFile, FILE_COMMON)) return;
 
-   SVPSignal sig;
-   if(!ReadSignal(g_signalFile, sig)) return;
-   if(sig.id == g_lastSignalId) return;
+   SVPSignal sigs[MAX_SLOTS];
+   int count = ReadSignals(g_signalFile, sigs);
+   if(count <= 0) return;
 
+   for(int i = 0; i < count && i < MAX_SLOTS; i++)
+     {
+      // SHORT -> slot 0, LONG -> slot 1
+      int idx = (sigs[i].direction == "LONG") ? 1 : 0;
+      LoadSignalToSlot(idx, sigs[i]);
+     }
+  }
+
+//+------------------------------------------------------------------+
+//| Laduje sygnal do slotu — auto-reload jesli nowe ID               |
+//+------------------------------------------------------------------+
+void LoadSignalToSlot(int idx, SVPSignal &sig)
+  {
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+
+   if(sig.id == sl.sig.id) return;  // ten sam sygnal, ignoruj
+
+   // Pozycje otwarte — nie resetuj
+   if(sl.state == STATE_FILLED)
+     {
+      if(InpVerboseLog)
+         PrintFormat("VP EA[%d]: slot FILLED — nowy sygnal %s ignorowany", idx, sig.id);
+      return;
+     }
+
+   // Walidacja terminu
    if(sig.expires > 0 && TimeCurrent() > sig.expires)
      {
-      if(InpVerboseLog) PrintFormat("VP EA: sygnal %s przeterminowany - pomin", sig.id);
-      g_lastSignalId = sig.id;
-      WriteDone(sig, 0, "EXPIRED");
+      PrintFormat("VP EA[%d]: sygnal %s przeterminowany", idx, sig.id);
+      sl.sig        = sig;
+      sl.state      = STATE_DONE;
+      sl.statusCode = "EXPIRED";
+      sl.statusMsg  = "EXPIRED";
+      WriteDone();
       return;
      }
 
@@ -203,9 +244,12 @@ void PollSignal()
       int ageMin = (int)((TimeCurrent() - sig.sent_at) / 60);
       if(ageMin > InpMaxSignalAgeMin)
         {
-         if(InpVerboseLog) PrintFormat("VP EA: sygnal %s za stary (%d min) - pomin", sig.id, ageMin);
-         g_lastSignalId = sig.id;
-         WriteDone(sig, 0, "EXPIRED");
+         PrintFormat("VP EA[%d]: sygnal %s za stary (%d min)", idx, sig.id, ageMin);
+         sl.sig        = sig;
+         sl.state      = STATE_DONE;
+         sl.statusCode = "EXPIRED";
+         sl.statusMsg  = "EXPIRED";
+         WriteDone();
          return;
         }
      }
@@ -213,33 +257,40 @@ void PollSignal()
    string brokerSym = ResolveBrokerSymbol(sig.symbol);
    if(brokerSym == "")
      {
-      PrintFormat("VP EA: symbol %s niedostepny - odrzucono", sig.symbol);
-      g_lastSignalId = sig.id;
-      WriteDone(sig, 0, "ERROR");
+      PrintFormat("VP EA[%d]: symbol %s niedostepny", idx, sig.symbol);
+      sl.sig        = sig;
+      sl.state      = STATE_DONE;
+      sl.statusCode = "ERROR";
+      sl.statusMsg  = "ERROR: symbol niedostepny";
+      WriteDone();
       return;
      }
 
-   g_sig        = sig;
-   g_brokerSym  = brokerSym;
-   g_state      = STATE_WATCHING;
-   g_zoneBars   = 0;
-   g_lastBarTime = 0;
-   g_tp1Hit     = false;
-   g_tp2Hit     = false;
+   if(sl.state == STATE_WATCHING || sl.state == STATE_IN_ZONE)
+      PrintFormat("VP EA[%d]: nowy sygnal %s -> zastepuje stary %s", idx, sig.id, sl.sig.id);
 
-   PrintFormat("VP EA: sygnal zaladowany %s | %s %s | strefa %.2f-%.2f | SL %.2f | TP %.2f/%.2f/%.2f",
-               sig.id, sig.symbol, sig.direction,
+   sl.sig           = sig;
+   sl.brokerSym     = brokerSym;
+   sl.state         = STATE_WATCHING;
+   sl.tp1Hit        = false;
+   sl.tp2Hit        = false;
+   sl.zoneBars      = 0;
+   sl.lastBarTime   = 0;
+   sl.zoneEntryTime = 0;
+   sl.statusCode    = "WATCHING";
+   sl.statusMsg     = StringFormat("WATCHING: %s %.2f-%.2f", sig.direction, sig.entry_from, sig.entry_to);
+
+   PrintFormat("VP EA[%d]: sygnal %s | %s %s | strefa %.2f-%.2f | SL %.2f | TP %.2f/%.2f/%.2f",
+               idx, sig.id, sig.symbol, sig.direction,
                sig.entry_from, sig.entry_to, sig.sl,
                sig.tp1, sig.tp2, sig.tp3);
-   PrintFormat("VP EA: czekam az cena wejdzie w strefe %.2f-%.2f...", sig.entry_from, sig.entry_to);
 
-   g_statusMsg = StringFormat("WATCHING: %s %.2f-%.2f", sig.direction, sig.entry_from, sig.entry_to);
-   WriteDone(sig, 0, "WATCHING");
+   WriteDone();
 
-   // Powiadomienie #1: zlecenie ustawione, czekamy na stref
-   string arrow  = (sig.direction == "SHORT") ? "🔴" : "🟢";
-   string tgMsg1 = StringFormat(
-     "%s <b>VP EA | %s %s</b>\n"
+   // Telegram #1 — sygnal odebrany
+   string arrow = (sig.direction == "SHORT") ? "🔴" : "🟢";
+   string msg = StringFormat(
+     "%s <b>VP EA [%d] | %s %s</b>\n"
      "━━━━━━━━━━━━━━━━\n"
      "📍 Strefa: %.2f – %.2f\n"
      "🛑 SL: %.2f\n"
@@ -247,225 +298,197 @@ void PollSignal()
      "━━━━━━━━━━━━━━━━\n"
      "⏳ Czekam na wejscie ceny w strefe...\n"
      "<i>%s</i>",
-     arrow, sig.direction, sig.symbol,
-     sig.entry_from, sig.entry_to,
-     sig.sl, sig.tp1, sig.tp2, sig.tp3,
-     sig.comment);
-   SendTelegram(tgMsg1);
+     arrow, idx, sig.direction, sig.symbol,
+     sig.entry_from, sig.entry_to, sig.sl,
+     sig.tp1, sig.tp2, sig.tp3, sig.comment);
+   SendTelegram(msg);
   }
 
 //+------------------------------------------------------------------+
-//| Monitoruje cene i decyduje o wejsciu gdy cena w strefie          |
+//| Monitoruje cene i decyduje o wejsciu                             |
 //+------------------------------------------------------------------+
-void CheckZoneEntry()
+void CheckZoneEntry(int idx)
   {
-   if(g_brokerSym == "") return;
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+   if(sl.brokerSym == "") return;
 
-   bool   isLong = (g_sig.direction == "LONG");
-   double bid    = SymbolInfoDouble(g_brokerSym, SYMBOL_BID);
-   double ask    = SymbolInfoDouble(g_brokerSym, SYMBOL_ASK);
+   bool   isLong = (sl.sig.direction == "LONG");
+   double bid    = SymbolInfoDouble(sl.brokerSym, SYMBOL_BID);
+   double ask    = SymbolInfoDouble(sl.brokerSym, SYMBOL_ASK);
    double cur    = isLong ? ask : bid;
 
-   // Wygasniecie
-   if(g_sig.expires > 0 && TimeCurrent() > g_sig.expires)
+   if(sl.sig.expires > 0 && TimeCurrent() > sl.sig.expires)
      {
-      PrintFormat("VP EA: sygnal %s wygasl w trakcie oczekiwania", g_sig.id);
-      g_lastSignalId = g_sig.id;
-      g_state        = STATE_DONE;
-      g_statusMsg    = "EXPIRED";
-      WriteDone(g_sig, cur, "EXPIRED");
+      PrintFormat("VP EA[%d]: sygnal wygasl w trakcie oczekiwania", idx);
+      sl.state      = STATE_DONE;
+      sl.statusCode = "EXPIRED";
+      sl.statusMsg  = "EXPIRED";
+      WriteDone();
       return;
      }
 
-   bool inZone    = (cur >= g_sig.entry_from && cur <= g_sig.entry_to);
-   // beyondZone: cena przeszla PRZEZ strefe bez potwierdzenia (zly kierunek)
-   bool beyond    = isLong ? (ask < g_sig.entry_from) : (bid > g_sig.entry_to);
+   bool inZone = (cur >= sl.sig.entry_from && cur <= sl.sig.entry_to);
+   bool beyond = isLong ? (ask < sl.sig.entry_from) : (bid > sl.sig.entry_to);
 
    if(beyond)
      {
-      PrintFormat("VP EA: cena %.2f przebila strefe %.2f-%.2f - SKIPPED", cur, g_sig.entry_from, g_sig.entry_to);
-      g_lastSignalId = g_sig.id;
-      g_state        = STATE_DONE;
-      g_statusMsg    = "SKIPPED - cena przebila strefe";
-      WriteDone(g_sig, cur, "SKIPPED");
+      PrintFormat("VP EA[%d]: cena %.2f przebila strefe %.2f-%.2f — SKIPPED",
+                  idx, cur, sl.sig.entry_from, sl.sig.entry_to);
+      sl.state      = STATE_DONE;
+      sl.statusCode = "SKIPPED";
+      sl.statusMsg  = "SKIPPED — cena przebila strefe";
+      WriteDone();
       return;
      }
 
-   // Cena weszla w strefe
-   if(inZone && g_state == STATE_WATCHING)
+   if(inZone && sl.state == STATE_WATCHING)
      {
-      g_state        = STATE_IN_ZONE;
-      g_zoneEntryTime = TimeCurrent();
-      g_zoneBars     = 0;
-      g_lastBarTime  = iTime(g_brokerSym, PERIOD_M15, 0);
-      PrintFormat("VP EA: cena %.2f weszla w strefe %.2f-%.2f | czekam na potwierdzenie...",
-                  cur, g_sig.entry_from, g_sig.entry_to);
-      g_statusMsg = StringFormat("IN_ZONE: %.2f | czekam na swiece...", cur);
+      sl.state         = STATE_IN_ZONE;
+      sl.zoneEntryTime = TimeCurrent();
+      sl.zoneBars      = 0;
+      sl.lastBarTime   = iTime(sl.brokerSym, PERIOD_M15, 0);
+      PrintFormat("VP EA[%d]: cena %.2f weszla w strefe — czekam na potwierdzenie", idx, cur);
+      sl.statusMsg = StringFormat("IN_ZONE: %.2f | czekam na swiece...", cur);
       return;
      }
 
-   // Cena opuscila strefe bez potwierdzenia — wracamy do WATCHING
-   if(!inZone && g_state == STATE_IN_ZONE)
+   if(!inZone && sl.state == STATE_IN_ZONE)
      {
-      g_state   = STATE_WATCHING;
-      g_zoneBars = 0;
-      if(InpVerboseLog)
-         PrintFormat("VP EA: cena %.2f wyszla ze strefy - wracam do WATCHING", cur);
-      g_statusMsg = StringFormat("WATCHING: %s %.2f-%.2f", g_sig.direction, g_sig.entry_from, g_sig.entry_to);
+      sl.state     = STATE_WATCHING;
+      sl.zoneBars  = 0;
+      sl.statusMsg = StringFormat("WATCHING: %s %.2f-%.2f", sl.sig.direction, sl.sig.entry_from, sl.sig.entry_to);
+      if(InpVerboseLog) PrintFormat("VP EA[%d]: cena wyszla ze strefy — wracam do WATCHING", idx);
       return;
      }
 
-   // Sprawdzamy potwierdzenie gdy IN_ZONE
-   if(g_state == STATE_IN_ZONE)
+   if(sl.state == STATE_IN_ZONE)
      {
-      // Wykryj nowy bar
-      datetime curBarTime = iTime(g_brokerSym, PERIOD_M15, 0);
-      bool     newBar     = (curBarTime != g_lastBarTime && g_lastBarTime != 0);
+      datetime curBarTime = iTime(sl.brokerSym, PERIOD_M15, 0);
+      bool     newBar     = (curBarTime != sl.lastBarTime && sl.lastBarTime != 0);
 
       if(newBar)
         {
-         g_lastBarTime = curBarTime;
-         g_zoneBars++;
-
+         sl.lastBarTime = curBarTime;
+         sl.zoneBars++;
          if(InpVerboseLog)
-            PrintFormat("VP EA: nowy bar w strefie #%d | sprawdzam potwierdzenie...", g_zoneBars);
-
-         // Przekroczono limit barow bez potwierdzenia — wejdz mimo braku swiecy
-         if(g_zoneBars > InpZoneMaxBars)
+            PrintFormat("VP EA[%d]: bar #%d w strefie | sprawdzam potwierdzenie...", idx, sl.zoneBars);
+         if(sl.zoneBars > InpZoneMaxBars)
            {
-            PrintFormat("VP EA: %d barow w strefie bez potwierdzenia - wchodze rynkowo", g_zoneBars);
-            TryEnterMarket();
+            PrintFormat("VP EA[%d]: %d barow bez potwierdzenia — wchodze rynkowo", idx, sl.zoneBars);
+            TryEnterMarket(idx);
             return;
            }
         }
-      else if(g_lastBarTime == 0)
-        {
-         g_lastBarTime = curBarTime;
-        }
+      else if(sl.lastBarTime == 0)
+         sl.lastBarTime = curBarTime;
 
-      // Sprawdz spread
-      if(!CheckSpread()) return;
+      if(!CheckSpread(idx)) return;
+      if(InpCandleM15 && !CandleConfirmsTF(idx, PERIOD_M15, "M15")) return;
+      if(InpCandleM5  && !CandleConfirmsTF(idx, PERIOD_M5,  "M5"))  return;
+      if(InpCandleM3  && !CandleConfirmsTF(idx, PERIOD_M3,  "M3"))  return;
+      if(InpRequireVolume && !VolumeConfirms(idx)) return;
 
-      // Sprawdz potwierdzenie swiecowe na wybranych TF (wszystkie wlaczone musza potwierdzic)
-      if(InpCandleM15 && !CandleConfirmsTF(PERIOD_M15, "M15")) return;
-      if(InpCandleM5  && !CandleConfirmsTF(PERIOD_M5,  "M5"))  return;
-      if(InpCandleM3  && !CandleConfirmsTF(PERIOD_M3,  "M3"))  return;
-
-      // Sprawdz wolumen
-      if(InpRequireVolume)
-        {
-         if(!VolumeConfirms()) return;
-        }
-
-      // Wszystkie warunki spelnione
-      TryEnterMarket();
+      TryEnterMarket(idx);
      }
   }
 
 //+------------------------------------------------------------------+
-//| Sprawdza spread                                                  |
-//+------------------------------------------------------------------+
-bool CheckSpread()
+bool CheckSpread(int idx)
   {
    if(InpMaxSpreadPts <= 0) return true;
-   long spread = SymbolInfoInteger(g_brokerSym, SYMBOL_SPREAD);
+   long spread = SymbolInfoInteger(g_slots[idx].brokerSym, SYMBOL_SPREAD);
    if(spread > InpMaxSpreadPts)
      {
-      if(InpVerboseLog) PrintFormat("VP EA: spread %d > max %d - czekam", spread, InpMaxSpreadPts);
+      if(InpVerboseLog) PrintFormat("VP EA[%d]: spread %d > %d — czekam", idx, spread, InpMaxSpreadPts);
       return false;
      }
    return true;
   }
 
 //+------------------------------------------------------------------+
-//| Sprawdza potwierdzenie swiecowe na podanym TF (ostatnia zamk.)  |
-//| Warunek: swieca kierunkowa (bearish/bullish) na danym TF        |
-//+------------------------------------------------------------------+
-bool CandleConfirmsTF(ENUM_TIMEFRAMES tf, string tfName)
+bool CandleConfirmsTF(int idx, ENUM_TIMEFRAMES tf, string tfName)
   {
-   bool isLong = (g_sig.direction == "LONG");
+   SVPSlot *sl    = GetPointer(g_slots[idx]);
+   bool     isLong = (sl.sig.direction == "LONG");
 
-   double prevOpen  = iOpen(g_brokerSym,  tf, 1);
-   double prevClose = iClose(g_brokerSym, tf, 1);
+   double prevOpen  = iOpen(sl.brokerSym,  tf, 1);
+   double prevClose = iClose(sl.brokerSym, tf, 1);
 
    if(prevOpen == 0 || prevClose == 0)
      {
-      if(InpVerboseLog) PrintFormat("VP EA: brak danych swieca %s - przepuszczam", tfName);
-      return true;  // brak danych = nie blokuj wejscia
+      if(InpVerboseLog) PrintFormat("VP EA[%d]: brak danych swieca %s — przepuszczam", idx, tfName);
+      return true;
      }
 
-   bool confirmed = isLong ? (prevClose > prevOpen) : (prevClose < prevOpen);
+   bool ok = isLong ? (prevClose > prevOpen) : (prevClose < prevOpen);
 
-   if(!confirmed)
+   if(!ok)
      {
       if(InpVerboseLog)
-         PrintFormat("VP EA: swieca %s O=%.2f C=%.2f nie potwierdza %s - czekam",
-                     tfName, prevOpen, prevClose, g_sig.direction);
+         PrintFormat("VP EA[%d]: swieca %s O=%.2f C=%.2f nie potwierdza %s — czekam",
+                     idx, tfName, prevOpen, prevClose, sl.sig.direction);
       return false;
      }
 
    if(InpVerboseLog)
-      PrintFormat("VP EA: swieca %s OK | O=%.2f C=%.2f %s",
-                  tfName, prevOpen, prevClose, isLong ? "BULLISH" : "BEARISH");
+      PrintFormat("VP EA[%d]: swieca %s OK | O=%.2f C=%.2f %s",
+                  idx, tfName, prevOpen, prevClose, isLong ? "BULLISH" : "BEARISH");
    return true;
   }
 
 //+------------------------------------------------------------------+
-//| Sprawdza wolumen                                                 |
-//+------------------------------------------------------------------+
-bool VolumeConfirms()
+bool VolumeConfirms(int idx)
   {
-   long vol = iVolume(g_brokerSym, PERIOD_M15, 1);
-   if(vol <= 0) return true;  // brak danych = przepusc
+   string sym = g_slots[idx].brokerSym;
+   long vol = iVolume(sym, PERIOD_M15, 1);
+   if(vol <= 0) return true;
 
-   // Srednia wolumenu z ostatnich 20 barow (od bar 2 do 21)
    long sumVol = 0;
    int  count  = 0;
    for(int i = 2; i <= 21; i++)
      {
-      long v = iVolume(g_brokerSym, PERIOD_M15, i);
+      long v = iVolume(sym, PERIOD_M15, i);
       if(v > 0) { sumVol += v; count++; }
      }
    if(count == 0) return true;
 
    double avgVol = (double)sumVol / count;
-   double minVol = avgVol * InpVolMult;
-
-   if((double)vol < minVol)
+   if((double)vol < avgVol * InpVolMult)
      {
-      if(InpVerboseLog)
-         PrintFormat("VP EA: wolumen %I64d < min %.0f (%.1fx avg) - czekam", vol, minVol, InpVolMult);
+      if(InpVerboseLog) PrintFormat("VP EA[%d]: wolumen za niski", idx);
       return false;
      }
-
-   if(InpVerboseLog)
-      PrintFormat("VP EA: wolumen OK: %I64d >= %.0f (%.1fx)", vol, minVol, InpVolMult);
    return true;
   }
 
 //+------------------------------------------------------------------+
-//| Otwiera 3 pozycje rynkowe (Market Order)                        |
+//| Otwiera 3 pozycje rynkowe                                        |
 //+------------------------------------------------------------------+
-void TryEnterMarket()
+void TryEnterMarket(int idx)
   {
-   bool isLong = (g_sig.direction == "LONG");
-   double lot  = g_sig.lot > 0 ? g_sig.lot : InpLotPerPos;
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+   bool isLong = (sl.sig.direction == "LONG");
+   double lot  = sl.sig.lot > 0 ? sl.sig.lot : InpLotPerPos;
+
+   g_trade.SetExpertMagicNumber(sl.magic);
 
    if(InpDryRun)
      {
-      double cur = isLong ? SymbolInfoDouble(g_brokerSym, SYMBOL_ASK) : SymbolInfoDouble(g_brokerSym, SYMBOL_BID);
-      PrintFormat("TRYB TESTOWY: wejscie %s @ %.2f SL %.2f TP1 %.2f TP2 %.2f TP3 %.2f",
-                  g_sig.direction, cur, g_sig.sl, g_sig.tp1, g_sig.tp2, g_sig.tp3);
-      g_lastSignalId = g_sig.id;
-      g_state        = STATE_DONE;
-      g_statusMsg    = "TRYB TESTOWY - wejscie zalogowane";
-      WriteDone(g_sig, cur, "DRYRUN");
+      double cur = isLong
+         ? SymbolInfoDouble(sl.brokerSym, SYMBOL_ASK)
+         : SymbolInfoDouble(sl.brokerSym, SYMBOL_BID);
+      PrintFormat("TRYB TESTOWY[%d]: wejscie %s @ %.2f SL %.2f TP1 %.2f",
+                  idx, sl.sig.direction, cur, sl.sig.sl, sl.sig.tp1);
+      sl.state      = STATE_DONE;
+      sl.statusCode = "DRYRUN";
+      sl.statusMsg  = "DRYRUN";
+      WriteDone();
       return;
      }
 
-   double tps[3]     = {g_sig.tp1, g_sig.tp2, g_sig.tp3};
-   string cmts[3]    = {COMMENT_TP1, COMMENT_TP2, COMMENT_TP3};
-   int    opened     = 0;
+   double tps[3]  = {sl.sig.tp1, sl.sig.tp2, sl.sig.tp3};
+   string cmts[3] = {COMMENT_TP1, COMMENT_TP2, COMMENT_TP3};
+   int    opened  = 0;
    double entryPrice = 0;
 
    for(int i = 0; i < 3; i++)
@@ -473,114 +496,113 @@ void TryEnterMarket()
       if(tps[i] <= 0) continue;
 
       bool res = isLong
-         ? g_trade.Buy(lot, g_brokerSym, 0, g_sig.sl, tps[i], cmts[i])
-         : g_trade.Sell(lot, g_brokerSym, 0, g_sig.sl, tps[i], cmts[i]);
+         ? g_trade.Buy(lot, sl.brokerSym, 0, sl.sig.sl, tps[i], cmts[i])
+         : g_trade.Sell(lot, sl.brokerSym, 0, sl.sig.sl, tps[i], cmts[i]);
 
       if(res)
         {
          opened++;
          if(entryPrice == 0) entryPrice = g_trade.ResultPrice();
-         PrintFormat("VP EA: otwarto pozycja %d (%s) @ %.2f TP %.2f ticket %I64d",
-                     i+1, cmts[i], g_trade.ResultPrice(), tps[i], g_trade.ResultOrder());
+         PrintFormat("VP EA[%d]: otwarto poz %d (%s) @ %.2f TP %.2f ticket %I64d",
+                     idx, i + 1, cmts[i], g_trade.ResultPrice(), tps[i], g_trade.ResultOrder());
         }
       else
-        {
-         PrintFormat("VP EA: BLAD pozycja %d (%s) kod %d: %s",
-                     i+1, cmts[i], g_trade.ResultRetcode(), g_trade.ResultComment());
-        }
+         PrintFormat("VP EA[%d]: BLAD poz %d kod %d: %s",
+                     idx, i + 1, g_trade.ResultRetcode(), g_trade.ResultComment());
      }
-
-   g_lastSignalId = g_sig.id;
 
    if(opened > 0)
      {
-      g_openCount = opened;
-      g_state     = STATE_FILLED;
-      g_statusMsg = StringFormat("FILLED: %s @ %.2f | %d/3 otwartych", g_sig.direction, entryPrice, opened);
-      PrintFormat("VP EA: wejscie potwierdzone | %d/3 pozycji @ %.2f", opened, entryPrice);
-      WriteDone(g_sig, entryPrice, "OPENED");
+      sl.state      = STATE_FILLED;
+      sl.statusCode = "OPENED";
+      sl.statusMsg  = StringFormat("FILLED: %s @ %.2f | %d/3", sl.sig.direction, entryPrice, opened);
+      WriteDone();
 
-      // Powiadomienie #2: transakcja otwarta
-      double slPts = MathAbs(entryPrice - g_sig.sl);
-      double tp3Pts = (g_sig.tp3 > 0) ? MathAbs(g_sig.tp3 - entryPrice) : MathAbs(g_sig.tp1 - entryPrice);
-      double rr    = (slPts > 0) ? tp3Pts / slPts : 0;
-      string arrow2 = (g_sig.direction == "SHORT") ? "🔴" : "🟢";
-      string tgMsg2 = StringFormat(
-        "✅ <b>VP EA | OTWARTO %s %s</b>\n"
+      // Telegram #2 — transakcja otwarta
+      double slPts  = MathAbs(entryPrice - sl.sig.sl);
+      double tpPts  = (sl.sig.tp3 > 0) ? MathAbs(sl.sig.tp3 - entryPrice) : MathAbs(sl.sig.tp1 - entryPrice);
+      double rr     = (slPts > 0) ? tpPts / slPts : 0;
+      string arrow  = (sl.sig.direction == "SHORT") ? "🔴" : "🟢";
+      string msg = StringFormat(
+        "✅ <b>VP EA [%d] | OTWARTO %s %s</b>\n"
         "━━━━━━━━━━━━━━━━\n"
         "💰 Entry: %.2f (rynek)\n"
-        "📦 Lot: %dx%.2f\n"
+        "📦 Lot: %dx%.2f | R:R 1:%.1f\n"
         "🛑 SL: %.2f\n"
         "🎯 TP1: %.2f | TP2: %.2f | TP3: %.2f\n"
-        "📊 R:R 1:%.1f\n"
         "━━━━━━━━━━━━━━━━\n"
-        "<i>Potwierdzenie: swieca M15 + spread OK</i>",
-        arrow2, g_sig.symbol,
-        entryPrice,
-        opened, g_sig.lot,
-        g_sig.sl,
-        g_sig.tp1, g_sig.tp2, g_sig.tp3,
-        rr);
-      SendTelegram(tgMsg2);
+        "<i>Magic: %I64d</i>",
+        idx, arrow, sl.sig.symbol,
+        entryPrice, opened, lot, rr,
+        sl.sig.sl,
+        sl.sig.tp1, sl.sig.tp2, sl.sig.tp3,
+        sl.magic);
+      SendTelegram(msg);
      }
    else
      {
-      g_state     = STATE_DONE;
-      g_statusMsg = "BLAD otwarcia pozycji";
-      WriteDone(g_sig, 0, "ERROR");
+      sl.state      = STATE_DONE;
+      sl.statusCode = "ERROR";
+      sl.statusMsg  = "BLAD otwarcia pozycji";
+      WriteDone();
      }
   }
 
 //+------------------------------------------------------------------+
-//| Zarzadza pozycjami: SL na BE po TP1, trailing po TP2            |
+//| Zarzadza pozycjami danego slotu                                  |
 //+------------------------------------------------------------------+
-void ManagePositions()
+void ManagePositions(int idx)
   {
-   int tp1Count = 0, tp2Count = 0, tp3Count = 0;
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+   if(sl.state != STATE_FILLED) return;
 
-   for(int i = PositionsTotal()-1; i >= 0; i--)
+   int tp1c = 0, tp2c = 0, tp3c = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       if(!PositionSelectByTicket(PositionGetTicket(i))) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != InpMagic) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != sl.magic) continue;
       string cmt = PositionGetString(POSITION_COMMENT);
-      if(StringFind(cmt, COMMENT_TP1) >= 0) tp1Count++;
-      if(StringFind(cmt, COMMENT_TP2) >= 0) tp2Count++;
-      if(StringFind(cmt, COMMENT_TP3) >= 0) tp3Count++;
+      if(StringFind(cmt, COMMENT_TP1) >= 0) tp1c++;
+      if(StringFind(cmt, COMMENT_TP2) >= 0) tp2c++;
+      if(StringFind(cmt, COMMENT_TP3) >= 0) tp3c++;
      }
 
-   if(!g_tp1Hit && tp1Count == 0 && (tp2Count > 0 || tp3Count > 0))
+   if(!sl.tp1Hit && tp1c == 0 && (tp2c > 0 || tp3c > 0))
      {
-      g_tp1Hit = true;
-      PrintFormat("VP EA: TP1 zamkniety! Przesuwam SL na BE.");
-      if(InpMoveSLtoBE) MoveSLtoBE();
+      sl.tp1Hit = true;
+      PrintFormat("VP EA[%d]: TP1 zamkniety — przesuwam SL na BE", idx);
+      if(InpMoveSLtoBE) MoveSLtoBE(idx);
      }
 
-   if(g_tp1Hit && !g_tp2Hit && tp2Count == 0 && tp3Count > 0)
+   if(sl.tp1Hit && !sl.tp2Hit && tp2c == 0 && tp3c > 0)
      {
-      g_tp2Hit = true;
-      PrintFormat("VP EA: TP2 zamkniety! Wlaczam trailing na TP3.");
+      sl.tp2Hit = true;
+      PrintFormat("VP EA[%d]: TP2 zamkniety — trailing aktywny", idx);
      }
 
-   if(tp1Count == 0 && tp2Count == 0 && tp3Count == 0 && g_state == STATE_FILLED)
+   if(tp1c == 0 && tp2c == 0 && tp3c == 0)
      {
-      g_tp1Hit    = false;
-      g_tp2Hit    = false;
-      g_state     = STATE_DONE;
-      g_statusMsg = "Wszystkie pozycje zamkniete";
-      PrintFormat("VP EA: wszystkie pozycje zamkniete.");
-      SendTelegramSummary();
+      sl.tp1Hit     = false;
+      sl.tp2Hit     = false;
+      sl.state      = STATE_DONE;
+      sl.statusCode = "DONE";
+      sl.statusMsg  = "Pozycje zamkniete";
+      PrintFormat("VP EA[%d]: wszystkie pozycje zamkniete", idx);
+      WriteDone();
+      SendTelegramSummary(idx);
      }
   }
 
 //+------------------------------------------------------------------+
-//| Przesun SL na breakeven dla TP2 i TP3                           |
-//+------------------------------------------------------------------+
-void MoveSLtoBE()
+void MoveSLtoBE(int idx)
   {
-   for(int i = PositionsTotal()-1; i >= 0; i--)
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+   g_trade.SetExpertMagicNumber(sl.magic);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       if(!PositionSelectByTicket(PositionGetTicket(i))) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != InpMagic) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != sl.magic) continue;
       string cmt = PositionGetString(POSITION_COMMENT);
       if(StringFind(cmt, COMMENT_TP1) >= 0) continue;
 
@@ -590,34 +612,33 @@ void MoveSLtoBE()
       long   type      = PositionGetInteger(POSITION_TYPE);
       ulong  ticket    = PositionGetInteger(POSITION_TICKET);
 
-      bool isBetter = (type == POSITION_TYPE_BUY)  ? (openPrice > curSL) :
-                      (type == POSITION_TYPE_SELL) ? (openPrice < curSL) : false;
-      if(!isBetter) continue;
+      bool better = (type == POSITION_TYPE_BUY) ? (openPrice > curSL) : (openPrice < curSL);
+      if(!better) continue;
 
       if(g_trade.PositionModify(ticket, openPrice, curTP))
-         PrintFormat("VP EA: SL na BE dla #%I64d (%.2f)", ticket, openPrice);
+         PrintFormat("VP EA[%d]: SL na BE dla #%I64d (%.2f)", idx, ticket, openPrice);
       else
-         PrintFormat("VP EA: BLAD modyfikacji BE #%I64d: %s", ticket, g_trade.ResultComment());
+         PrintFormat("VP EA[%d]: BLAD BE #%I64d: %s", idx, ticket, g_trade.ResultComment());
      }
   }
 
 //+------------------------------------------------------------------+
-//| Trailing stop dla pozycji TP3                                    |
-//+------------------------------------------------------------------+
-void TrailTP3Position()
+void TrailTP3Position(int idx)
   {
-   for(int i = PositionsTotal()-1; i >= 0; i--)
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       if(!PositionSelectByTicket(PositionGetTicket(i))) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != InpMagic) continue;
+      if(PositionGetInteger(POSITION_MAGIC) != sl.magic) continue;
       string cmt = PositionGetString(POSITION_COMMENT);
       if(StringFind(cmt, COMMENT_TP3) < 0) continue;
 
       long   type   = PositionGetInteger(POSITION_TYPE);
-      string sym    = PositionGetString(POSITION_SYMBOL);
       double curSL  = PositionGetDouble(POSITION_SL);
       double curTP  = PositionGetDouble(POSITION_TP);
       ulong  ticket = PositionGetInteger(POSITION_TICKET);
+      string sym    = PositionGetString(POSITION_SYMBOL);
       double point  = SymbolInfoDouble(sym, SYMBOL_POINT);
       double step   = InpTrailStepPts * point;
       double bid    = SymbolInfoDouble(sym, SYMBOL_BID);
@@ -629,13 +650,166 @@ void TrailTP3Position()
       else
         { newSL = ask + step; if(newSL >= curSL) continue; }
 
-      if(g_trade.PositionModify(ticket, newSL, curTP))
-         PrintFormat("VP EA: Trailing SL -> %.2f dla #%I64d", newSL, ticket);
+      g_trade.PositionModify(ticket, newSL, curTP);
      }
   }
 
 //+------------------------------------------------------------------+
-//| Wykrywa symbol z sufiksem brokera                                |
+//| done.json — tablica stanow obu slotow                            |
+//+------------------------------------------------------------------+
+void WriteDone()
+  {
+   int handle = FileOpen(g_doneFile, FILE_WRITE | FILE_TXT | FILE_COMMON | FILE_ANSI);
+   if(handle == INVALID_HANDLE) return;
+
+   string body = "[";
+   bool   first = true;
+
+   for(int i = 0; i < MAX_SLOTS; i++)
+     {
+      SVPSlot *sl = GetPointer(g_slots[i]);
+      if(sl.sig.id == "") continue;
+
+      if(!first) body += ",";
+      first = false;
+
+      body += StringFormat(
+        "{\"id\":\"%s\",\"slot\":%d,\"direction\":\"%s\","
+        "\"status\":\"%s\",\"entry_executed\":%.2f,"
+        "\"account\":%I64d,\"time\":\"%s\"}",
+        sl.sig.id, i, sl.sig.direction,
+        sl.statusCode,
+        0.0,
+        AccountInfoInteger(ACCOUNT_LOGIN),
+        TimeToString(TimeCurrent(), TIME_DATE | TIME_SECONDS));
+     }
+
+   body += "]";
+   FileWriteString(handle, body);
+   FileClose(handle);
+  }
+
+//+------------------------------------------------------------------+
+void SendTelegramSummary(int idx)
+  {
+   if(!InpTgEnabled || g_tgToken == "") return;
+   SVPSlot *sl = GetPointer(g_slots[idx]);
+
+   double totalProfit = 0, totalSwap = 0;
+   bool   tp1ok = false, tp2ok = false, tp3ok = false;
+   int    dealCount = 0;
+
+   datetime from = (sl.zoneEntryTime > 0) ? sl.zoneEntryTime - 3600 : TimeCurrent() - 86400;
+   HistorySelect(from, TimeCurrent() + 60);
+
+   for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+     {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(HistoryDealGetInteger(ticket, DEAL_MAGIC) != sl.magic) continue;
+      if(HistoryDealGetInteger(ticket, DEAL_ENTRY) != DEAL_ENTRY_OUT) continue;
+
+      totalProfit += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+      totalSwap   += HistoryDealGetDouble(ticket, DEAL_SWAP);
+      dealCount++;
+
+      string cmt = HistoryDealGetString(ticket, DEAL_COMMENT);
+      if(StringFind(cmt, COMMENT_TP1) >= 0) tp1ok = true;
+      if(StringFind(cmt, COMMENT_TP2) >= 0) tp2ok = true;
+      if(StringFind(cmt, COMMENT_TP3) >= 0) tp3ok = true;
+     }
+
+   string icon = (totalProfit + totalSwap >= 0) ? "✅" : "❌";
+   string msg = StringFormat(
+     "%s <b>VP EA [%d] | PODSUMOWANIE %s %s</b>\n"
+     "━━━━━━━━━━━━━━━━\n"
+     "💵 Wynik: %+.2f USD\n"
+     "🎯 TP1: %s | TP2: %s | TP3: %s\n"
+     "📦 %d pozycji zamknietych\n"
+     "━━━━━━━━━━━━━━━━\n"
+     "<i>Magic: %I64d | Konto: %I64d</i>",
+     icon, idx, sl.sig.direction, sl.sig.symbol,
+     totalProfit + totalSwap,
+     tp1ok ? "✅" : "❌", tp2ok ? "✅" : "❌", tp3ok ? "✅" : "❌",
+     dealCount,
+     sl.magic, AccountInfoInteger(ACCOUNT_LOGIN));
+
+   SendTelegram(msg);
+  }
+
+//+------------------------------------------------------------------+
+//| Parsuje signal.json — single lub array, zwraca liczbe sygnalow   |
+//+------------------------------------------------------------------+
+int ReadSignals(string filename, SVPSignal &out[])
+  {
+   int handle = FileOpen(filename, FILE_READ | FILE_TXT | FILE_COMMON | FILE_ANSI, '\0', CP_UTF8);
+   if(handle == INVALID_HANDLE) return 0;
+
+   string json = "";
+   while(!FileIsEnding(handle)) json += FileReadString(handle);
+   FileClose(handle);
+
+   StringTrimLeft(json);
+   StringTrimRight(json);
+   if(StringLen(json) < 10) return 0;
+
+   int count = 0;
+
+   if(StringGetCharacter(json, 0) == '[')
+     {
+      // Tryb tablicy: wytnij kolejne obiekty {...}
+      int pos = 0;
+      while(pos < StringLen(json) && count < MAX_SLOTS)
+        {
+         int start = StringFind(json, "{", pos);
+         if(start < 0) break;
+
+         int depth = 0, end = start;
+         for(int i = start; i < StringLen(json); i++)
+           {
+            ushort c = StringGetCharacter(json, i);
+            if(c == '{') depth++;
+            else if(c == '}') { depth--; if(depth == 0) { end = i; break; } }
+           }
+
+         string obj = StringSubstr(json, start, end - start + 1);
+         SVPSignal sig;
+         if(ParseSignalObj(obj, sig)) { out[count] = sig; count++; }
+         pos = end + 1;
+        }
+     }
+   else
+     {
+      // Tryb pojedynczego obiektu
+      SVPSignal sig;
+      if(ParseSignalObj(json, sig)) { out[0] = sig; count = 1; }
+     }
+
+   return count;
+  }
+
+//+------------------------------------------------------------------+
+bool ParseSignalObj(string json, SVPSignal &sig)
+  {
+   sig.id         = JsonGetStr(json, "id");
+   sig.symbol     = JsonGetStr(json, "symbol");
+   sig.direction  = JsonGetStr(json, "direction");
+   sig.entry_from = JsonGetDbl(json, "entry_from");
+   sig.entry_to   = JsonGetDbl(json, "entry_to");
+   sig.sl         = JsonGetDbl(json, "sl");
+   sig.tp1        = JsonGetDbl(json, "tp1");
+   sig.tp2        = JsonGetDbl(json, "tp2");
+   sig.tp3        = JsonGetDbl(json, "tp3");
+   sig.lot        = JsonGetDbl(json, "lot");
+   sig.comment    = JsonGetStr(json, "comment");
+
+   string expiresStr = JsonGetStr(json, "expires_utc");
+   string sentStr    = JsonGetStr(json, "sent_at");
+   sig.expires = (expiresStr != "") ? ParseISO8601(expiresStr) : 0;
+   sig.sent_at = (sentStr    != "") ? ParseISO8601(sentStr)    : 0;
+
+   return (sig.id != "" && sig.symbol != "" && sig.direction != "");
+  }
+
 //+------------------------------------------------------------------+
 string ResolveBrokerSymbol(string base)
   {
@@ -652,45 +826,11 @@ string ResolveBrokerSymbol(string base)
       string s = SymbolName(i, false);
       if(StringFind(s, base) >= 0)
         {
-         PrintFormat("VP EA: symbol %s -> %s", base, s);
+         PrintFormat("VP EA: %s -> %s", base, s);
          if(SymbolSelect(s, true)) return s;
         }
      }
    return "";
-  }
-
-//+------------------------------------------------------------------+
-//| Parsuje signal.json                                              |
-//+------------------------------------------------------------------+
-bool ReadSignal(string filename, SVPSignal &sig)
-  {
-   int handle = FileOpen(filename, FILE_READ|FILE_TXT|FILE_COMMON|FILE_ANSI, '\0', CP_UTF8);
-   if(handle == INVALID_HANDLE) return false;
-
-   string json = "";
-   while(!FileIsEnding(handle)) json += FileReadString(handle);
-   FileClose(handle);
-   if(StringLen(json) < 10) return false;
-
-   sig.id         = JsonGetStr(json, "id");
-   sig.symbol     = JsonGetStr(json, "symbol");
-   sig.direction  = JsonGetStr(json, "direction");
-   sig.entry_from = JsonGetDbl(json, "entry_from");
-   sig.entry_to   = JsonGetDbl(json, "entry_to");
-   sig.sl         = JsonGetDbl(json, "sl");
-   sig.tp1        = JsonGetDbl(json, "tp1");
-   sig.tp2        = JsonGetDbl(json, "tp2");
-   sig.tp3        = JsonGetDbl(json, "tp3");
-   sig.lot        = JsonGetDbl(json, "lot");
-   sig.comment    = JsonGetStr(json, "comment");
-
-   string expiresStr = JsonGetStr(json, "expires_utc");
-   string sentStr    = JsonGetStr(json, "sent_at");
-   sig.expires  = expiresStr != "" ? ParseISO8601(expiresStr) : 0;
-   sig.sent_at  = sentStr    != "" ? ParseISO8601(sentStr)    : 0;
-
-   if(sig.id == "" || sig.symbol == "" || sig.direction == "") return false;
-   return true;
   }
 
 //+------------------------------------------------------------------+
@@ -705,7 +845,7 @@ string JsonGetStr(string json, string key)
    pos++;
    int end = StringFind(json, "\"", pos);
    if(end < 0) return "";
-   return StringSubstr(json, pos, end-pos);
+   return StringSubstr(json, pos, end - pos);
   }
 
 //+------------------------------------------------------------------+
@@ -723,52 +863,33 @@ double JsonGetDbl(string json, string key)
       if((c >= '0' && c <= '9') || c == '.' || c == '-') { num += ShortToString(c); pos++; }
       else break;
      }
-   return num != "" ? StringToDouble(num) : 0;
+   return (num != "") ? StringToDouble(num) : 0;
   }
 
 //+------------------------------------------------------------------+
 datetime ParseISO8601(string s)
   {
    if(StringLen(s) < 19) return 0;
-   int year  = (int)StringToInteger(StringSubstr(s, 0, 4));
-   int month = (int)StringToInteger(StringSubstr(s, 5, 2));
-   int day   = (int)StringToInteger(StringSubstr(s, 8, 2));
-   int hour  = (int)StringToInteger(StringSubstr(s, 11, 2));
-   int min   = (int)StringToInteger(StringSubstr(s, 14, 2));
-   int sec   = (int)StringToInteger(StringSubstr(s, 17, 2));
    MqlDateTime mdt = {};
-   mdt.year = year; mdt.mon = month; mdt.day = day;
-   mdt.hour = hour; mdt.min = min; mdt.sec = sec;
+   mdt.year = (int)StringToInteger(StringSubstr(s, 0, 4));
+   mdt.mon  = (int)StringToInteger(StringSubstr(s, 5, 2));
+   mdt.day  = (int)StringToInteger(StringSubstr(s, 8, 2));
+   mdt.hour = (int)StringToInteger(StringSubstr(s, 11, 2));
+   mdt.min  = (int)StringToInteger(StringSubstr(s, 14, 2));
+   mdt.sec  = (int)StringToInteger(StringSubstr(s, 17, 2));
    return StructToTime(mdt);
   }
 
-//+------------------------------------------------------------------+
-void WriteDone(const SVPSignal &sig, double entryPrice, string status)
-  {
-   int handle = FileOpen(g_doneFile, FILE_WRITE|FILE_TXT|FILE_COMMON|FILE_ANSI);
-   if(handle == INVALID_HANDLE) return;
-   string body = StringFormat(
-     "{\"id\":\"%s\",\"status\":\"%s\",\"entry_executed\":%.2f,\"account\":%I64d,\"time\":\"%s\"}",
-     sig.id, status, entryPrice,
-     AccountInfoInteger(ACCOUNT_LOGIN),
-     TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS));
-   FileWriteString(handle, body);
-   FileClose(handle);
-  }
-
-//+------------------------------------------------------------------+
-//+------------------------------------------------------------------+
-//| Wczytuje token Telegram z pliku Common\Files\TRW_VP\tg_token.txt|
 //+------------------------------------------------------------------+
 void LoadTgToken()
   {
    g_tgToken = "";
    if(!FileIsExist(InpTgTokenFile, FILE_COMMON))
      {
-      Print("VP EA Telegram: brak pliku tokenu ", InpTgTokenFile, " - powiadomienia wylaczone");
+      Print("VP EA Telegram: brak pliku tokenu — powiadomienia wylaczone");
       return;
      }
-   int h = FileOpen(InpTgTokenFile, FILE_READ|FILE_TXT|FILE_COMMON|FILE_ANSI);
+   int h = FileOpen(InpTgTokenFile, FILE_READ | FILE_TXT | FILE_COMMON | FILE_ANSI);
    if(h == INVALID_HANDLE) return;
    string tok = "";
    while(!FileIsEnding(h)) tok += FileReadString(h);
@@ -782,15 +903,9 @@ void LoadTgToken()
   }
 
 //+------------------------------------------------------------------+
-//| Wysyla wiadomosc na Telegram (HTML)                              |
-//| WYMAGA: Tools -> Options -> Expert Advisors -> Allow WebRequest  |
-//| URL: https://api.telegram.org                                    |
-//+------------------------------------------------------------------+
 void SendTelegram(string text)
   {
    if(!InpTgEnabled || g_tgToken == "") return;
-
-   // Escapuj cudzyslowy w tekscie
    StringReplace(text, "\"", "'");
 
    string url  = "https://api.telegram.org/bot" + g_tgToken + "/sendMessage";
@@ -802,67 +917,12 @@ void SendTelegram(string text)
    string respHeaders;
    StringToCharArray(body, post, 0, StringLen(body));
 
-   ResetLastError();
    int res = WebRequest("POST", url, "Content-Type: application/json\r\n",
                         5000, post, result, respHeaders);
    if(res == -1)
-      PrintFormat("VP EA Telegram: blad WebRequest kod %d (dodaj URL w opcjach MT5)", GetLastError());
+      PrintFormat("VP EA Telegram: blad WebRequest %d (dodaj URL w opcjach MT5)", GetLastError());
    else if(InpVerboseLog)
-      PrintFormat("VP EA Telegram: wyslano OK (%d bajtow)", ArraySize(result));
-  }
-
-//+------------------------------------------------------------------+
-//| Wysyla podsumowanie po zamknieciu wszystkich pozycji             |
-//+------------------------------------------------------------------+
-void SendTelegramSummary()
-  {
-   if(!InpTgEnabled || g_tgToken == "") return;
-
-   double totalProfit = 0;
-   double totalSwap   = 0;
-   bool   tp1ok = false, tp2ok = false, tp3ok = false;
-   int    dealCount = 0;
-
-   // Szukamy transakcji zamknietych przez tego EA
-   datetime from = (g_zoneEntryTime > 0) ? g_zoneEntryTime - 3600 : TimeCurrent() - 86400;
-   HistorySelect(from, TimeCurrent() + 60);
-
-   for(int i = HistoryDealsTotal()-1; i >= 0; i--)
-     {
-      ulong ticket = HistoryDealGetTicket(i);
-      if(HistoryDealGetInteger(ticket, DEAL_MAGIC) != InpMagic) continue;
-      if(HistoryDealGetInteger(ticket, DEAL_ENTRY) != DEAL_ENTRY_OUT) continue;
-
-      totalProfit += HistoryDealGetDouble(ticket, DEAL_PROFIT);
-      totalSwap   += HistoryDealGetDouble(ticket, DEAL_SWAP);
-      dealCount++;
-
-      string cmt = HistoryDealGetString(ticket, DEAL_COMMENT);
-      if(StringFind(cmt, COMMENT_TP1) >= 0) tp1ok = true;
-      if(StringFind(cmt, COMMENT_TP2) >= 0) tp2ok = true;
-      if(StringFind(cmt, COMMENT_TP3) >= 0) tp3ok = true;
-     }
-
-   string resultIcon = (totalProfit + totalSwap >= 0) ? "✅" : "❌";
-   string tp1str = tp1ok ? "✅" : "❌";
-   string tp2str = tp2ok ? "✅" : "❌";
-   string tp3str = tp3ok ? "✅" : "❌";
-
-   string tgMsg3 = StringFormat(
-     "%s <b>VP EA | PODSUMOWANIE %s %s</b>\n"
-     "━━━━━━━━━━━━━━━━\n"
-     "💵 Wynik: %+.2f USD\n"
-     "🎯 TP1: %s | TP2: %s | TP3: %s\n"
-     "📦 Pozycje: %d zamknietych\n"
-     "━━━━━━━━━━━━━━━━\n"
-     "<i>Magic: %I64d | Konto: %I64d</i>",
-     resultIcon, g_sig.direction, g_sig.symbol,
-     totalProfit + totalSwap,
-     tp1str, tp2str, tp3str,
-     dealCount,
-     InpMagic, AccountInfoInteger(ACCOUNT_LOGIN));
-
-   SendTelegram(tgMsg3);
+      PrintFormat("VP EA Telegram: wyslano OK (%d B)", ArraySize(result));
   }
 
 //+------------------------------------------------------------------+
@@ -870,42 +930,46 @@ void ShowPanel()
   {
    if(!InpShowPanel) return;
 
-   int tp1c=0, tp2c=0, tp3c=0;
-   for(int i = PositionsTotal()-1; i >= 0; i--)
-     {
-      if(!PositionSelectByTicket(PositionGetTicket(i))) continue;
-      if(PositionGetInteger(POSITION_MAGIC) != InpMagic) continue;
-      string cmt = PositionGetString(POSITION_COMMENT);
-      if(StringFind(cmt, COMMENT_TP1) >= 0) tp1c++;
-      if(StringFind(cmt, COMMENT_TP2) >= 0) tp2c++;
-      if(StringFind(cmt, COMMENT_TP3) >= 0) tp3c++;
-     }
+   string panel = StringFormat("TRW VP EA v%s%s\n━━━━━━━━━━━━━━━━\n",
+                               VP_EA_VERSION, InpDryRun ? " [TRYB TESTOWY]" : "");
 
-   string stateStr;
-   switch(g_state)
+   for(int i = 0; i < MAX_SLOTS; i++)
      {
-      case STATE_IDLE:     stateStr = "IDLE";     break;
-      case STATE_WATCHING: stateStr = "WATCHING"; break;
-      case STATE_IN_ZONE:  stateStr = StringFormat("IN_ZONE (%d bar)", g_zoneBars); break;
-      case STATE_FILLED:   stateStr = "FILLED";   break;
-      case STATE_DONE:     stateStr = "DONE";     break;
-      default:             stateStr = "?";
-     }
+      SVPSlot *sl = GetPointer(g_slots[i]);
 
-   string panel = StringFormat(
-     "TRW VP EA v%s | Magic %I64d%s\n"
-     "Sygnal: %s\n"
-     "Stan: %s\n"
-     "Pozycje: TP1=%d TP2=%d TP3=%d\n"
-     "Status: %s\n"
-     "TP1 hit: %s | TP2 hit: %s",
-     VP_EA_VERSION, InpMagic, InpDryRun ? " [TRYB TESTOWY]" : "",
-     g_lastSignalId != "" ? g_lastSignalId : "brak",
-     stateStr,
-     tp1c, tp2c, tp3c,
-     g_statusMsg,
-     g_tp1Hit ? "TAK" : "nie",
-     g_tp2Hit ? "TAK" : "nie");
+      string stateStr;
+      switch(sl.state)
+        {
+         case STATE_IDLE:     stateStr = "IDLE";     break;
+         case STATE_WATCHING: stateStr = "WATCHING"; break;
+         case STATE_IN_ZONE:  stateStr = StringFormat("IN_ZONE(%d bar)", sl.zoneBars); break;
+         case STATE_FILLED:   stateStr = "FILLED";   break;
+         case STATE_DONE:     stateStr = "DONE";     break;
+         default:             stateStr = "?";
+        }
+
+      int tp1c = 0, tp2c = 0, tp3c = 0;
+      for(int j = PositionsTotal() - 1; j >= 0; j--)
+        {
+         if(!PositionSelectByTicket(PositionGetTicket(j))) continue;
+         if(PositionGetInteger(POSITION_MAGIC) != sl.magic) continue;
+         string cmt = PositionGetString(POSITION_COMMENT);
+         if(StringFind(cmt, COMMENT_TP1) >= 0) tp1c++;
+         if(StringFind(cmt, COMMENT_TP2) >= 0) tp2c++;
+         if(StringFind(cmt, COMMENT_TP3) >= 0) tp3c++;
+        }
+
+      panel += StringFormat(
+        "[%d] %s | magic %I64d\n"
+        "    ID: %s\n"
+        "    Dir: %s | Poz: TP1=%d TP2=%d TP3=%d\n"
+        "    %s\n",
+        i, stateStr, sl.magic,
+        sl.sig.id != "" ? sl.sig.id : "brak",
+        sl.sig.direction != "" ? sl.sig.direction : "—",
+        tp1c, tp2c, tp3c,
+        sl.statusMsg);
+     }
 
    Comment(panel);
   }
