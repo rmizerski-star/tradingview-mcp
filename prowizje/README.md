@@ -9,14 +9,16 @@ Aplikacja w przeglądarce do prowadzenia prowizji pracowników hotelu: rezerwacj
 3. Kliknij dwukrotnie `start.bat`. Przy pierwszym uruchomieniu zainstalują się biblioteki (potrzebny internet).
 4. W oknie pojawią się adresy, np.:
    ```
-   Na tym komputerze:  http://localhost:3000
-   W sieci lokalnej:   http://192.168.1.20:3000
+   Na tym komputerze:  http://localhost:3300
+   W sieci lokalnej:   http://192.168.1.20:3300
    ```
 5. Otwórz adres w przeglądarce i utwórz konto administratora.
 6. W zakładce **Użytkownicy** załóż konta pracownikom (imię i nazwisko, login, hasło startowe).
 7. Pracownicy wpisują adres **„W sieci lokalnej”** w przeglądarce na swoich komputerach i logują się. Hasło zmieniają w zakładce **Konto**.
 
 Przy pierwszym uruchomieniu Windows może zapytać o dostęp przez zaporę. Zaznacz **sieci prywatne** i kliknij **Zezwól**. Bez tego inne komputery nie połączą się z serwerem.
+
+Jeśli port 3300 jest zajęty przez inny program, okno serwera to napisze. Otwórz `start.bat` w Notatniku, zmień liczbę w linii `set PORT=3300` (np. na `3301`), zapisz i uruchom ponownie. Pracownicy wpisują wtedy adres z nowym portem.
 
 Żeby adres się nie zmieniał, ustaw w routerze stały adres IP (rezerwację DHCP) dla komputera z serwerem.
 
@@ -31,7 +33,7 @@ npm start
 
 | Zmienna | Domyślnie | Opis |
 |---|---|---|
-| `PORT` | `3000` | Port serwera |
+| `PORT` | `3300` | Port serwera. W Windows zmieniasz go w linii `set PORT=3300` w `start.bat` |
 | `HOST` | `0.0.0.0` | Adres nasłuchu (`0.0.0.0` = cała sieć lokalna, `127.0.0.1` = tylko ten komputer) |
 | `DATA_DIR` | `./data` | Folder z bazą danych |
 | `COOKIE_SECURE` | — | Ustaw `1`, gdy aplikacja działa za HTTPS (np. reverse proxy) |

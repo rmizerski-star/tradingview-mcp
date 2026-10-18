@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -292,13 +293,26 @@ function lanAddresses() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = Number(process.env.PORT) || 3300;
   const HOST = process.env.HOST || '0.0.0.0';
   const db = openDb(process.env.DATA_DIR || path.join(__dirname, 'data'));
-  createApp(db, { secureCookie: process.env.COOKIE_SECURE === '1' }).listen(PORT, HOST, () => {
+  // http.createServer zamiast app.listen: w Express 5 callback app.listen jest wołany także przy błędzie
+  const server = http.createServer(createApp(db, { secureCookie: process.env.COOKIE_SECURE === '1' }));
+  server.listen(PORT, HOST, () => {
     console.log('Rejestr prowizji działa.');
     console.log(`  Na tym komputerze:  http://localhost:${PORT}`);
     for (const ip of lanAddresses()) console.log(`  W sieci lokalnej:   http://${ip}:${PORT}`);
     console.log(`  Dane: ${db.file}`);
+  });
+  server.once('error', err => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} jest zajęty przez inną aplikację.`);
+      console.error('Ustaw inny port: w start.bat zmień liczbę w linii "set PORT=..." (np. 3301) i uruchom ponownie.');
+    } else if (err.code === 'EACCES') {
+      console.error(`Brak uprawnień do portu ${PORT}. Wybierz port powyżej 1024 w linii "set PORT=..." w start.bat.`);
+    } else {
+      console.error('Nie udało się uruchomić serwera:', err.message);
+    }
+    process.exitCode = 1;
   });
 }
