@@ -1,0 +1,17 @@
+{
+  "name": "rejestr-prowizji",
+  "version": "1.0.0",
+  "description": "Rejestr prowizji pracowników hotelu: rezerwacje, śniadania, obiadokolacje, upsell i parking",
+  "type": "module",
+  "private": true,
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/calc.test.js test/excel.test.js test/api.test.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0"
+  }
+}

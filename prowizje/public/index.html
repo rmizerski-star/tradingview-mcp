@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rejestr prowizji</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%230a6f6b%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-size=%2716%27 font-family=%27Arial%27 font-weight=%27bold%27 fill=%27white%27 text-anchor=%27middle%27%3E%25%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand"><h1>Rejestr prowizji</h1><span>Wave Międzyzdroje</span></div>
+  <label class="period" for="period" id="period-wrap" hidden>Okres <input type="month" id="period"></label>
+  <div class="who" id="who"></div>
+</div></header>
+
+<main class="wrap">
+  <div id="boot" class="empty"><b>Ładowanie…</b></div>
+
+  <section id="v-login" class="auth" hidden>
+    <form id="login-form" class="card">
+      <h2>Zaloguj się</h2>
+      <label class="f" for="l-login">Login<input id="l-login" autocomplete="username" required autocapitalize="none"></label>
+      <label class="f" for="l-pass">Hasło<input id="l-pass" type="password" autocomplete="current-password" required></label>
+      <button class="btn pri" type="submit">Zaloguj</button>
+      <p class="note">Nie masz konta lub nie pamiętasz hasła? Poproś administratora.</p>
+    </form>
+  </section>
+
+  <section id="v-setup" class="auth" hidden>
+    <form id="setup-form" class="card">
+      <h2>Pierwsze uruchomienie</h2>
+      <p class="muted">Utwórz konto administratora. Administrator zakłada konta pracownikom i zatwierdza prowizje.</p>
+      <label class="f" for="su-name">Imię i nazwisko<input id="su-name" required maxlength="60"></label>
+      <label class="f" for="su-login">Login<input id="su-login" required autocapitalize="none" placeholder="np. rmizerski"></label>
+      <label class="f" for="su-pass">Hasło (min. 6 znaków)<input id="su-pass" type="password" required minlength="6" autocomplete="new-password"></label>
+      <button class="btn pri" type="submit">Utwórz administratora</button>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+
+    <!-- PRACOWNIK -->
+    <section class="panel" id="p-sum" hidden><div id="sum-body"></div></section>
+
+    <section class="panel" id="p-list" hidden>
+      <div class="row">
+        <h2 class="grow-title">Moje pozycje</h2>
+        <label class="f" for="lf-type">Kategoria<select id="lf-type"><option value="">Wszystkie</option><option value="rez">Rezerwacje</option><option value="sn">Śniadania</option><option value="ko">Obiadokolacje</option><option value="up">Upsell</option></select></label>
+        <label class="f" for="lf-st">Status<select id="lf-st"><option value="">Wszystkie</option><option value="todo">Do uzupełnienia</option><option value="pending">Oczekuje</option><option value="ok">Zatwierdzona</option><option value="x">Anulowana</option></select></label>
+      </div>
+      <div id="list-body"></div>
+    </section>
+
+    <section class="panel" id="p-add" hidden>
+      <div class="card">
+        <div class="row"><h2 id="add-title" class="grow-title">Dodaj prowizję ręcznie</h2><span class="muted" id="add-period"></span></div>
+        <form id="add-form" class="stack">
+          <div class="row">
+            <label class="f" for="a-t">Kategoria<select id="a-t"><option value="rez">Rezerwacja</option><option value="sn">Śniadanie (505)</option><option value="ko">Obiadokolacja (518)</option><option value="up">Upsell</option></select></label>
+            <label class="f" for="a-d" data-for="sn ko up">Data sprzedaży<input type="date" id="a-d"></label>
+            <label class="f" for="a-res" data-for="rez">Nr rezerwacji<input id="a-res" class="mono" placeholder="26/012803"></label>
+          </div>
+          <div class="row">
+            <label class="f grow" for="a-guest"><span id="a-guest-l">Imię i nazwisko gościa</span><input id="a-guest" maxlength="80"></label>
+            <label class="f" for="a-room" data-for="sn ko up">Pokój<input id="a-room" class="mono w-sm" placeholder="A110"></label>
+            <label class="f" for="a-from" data-for="rez">Przyjazd<input type="date" id="a-from"></label>
+            <label class="f" for="a-to" data-for="rez">Wyjazd<input type="date" id="a-to"></label>
+            <label class="f" for="a-stay" data-for="sn ko up">Pobyt<input id="a-stay" class="mono w-md" placeholder="16/10-18/10"></label>
+          </div>
+          <div class="row">
+            <label class="f" for="a-bill">Nr rachunku<input id="a-bill" class="mono" placeholder="26/032514"></label>
+            <label class="f" for="a-val">Wartość (zł)<input id="a-val" class="num" inputmode="decimal" placeholder="0,00"></label>
+            <label class="f grow" for="a-note"><span id="a-note-l">Uwagi</span><input id="a-note" maxlength="140"></label>
+          </div>
+          <p class="note" id="a-hint"></p>
+          <div class="row"><button class="btn pri" type="submit" id="a-save">Dodaj pozycję</button><button class="btn" type="button" id="a-cancel" hidden>Anuluj edycję</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel" id="p-imp" hidden>
+      <div class="card">
+        <div class="row"><h2 class="grow-title">Import z Excela</h2><span class="muted" id="imp-period"></span></div>
+        <div class="row">
+          <label class="f" for="im-type">Rodzaj raportu<select id="im-type"><option value="auto">Wykryj automatycznie</option><option value="rez">Lista rezerwacji</option><option value="sn">Śniadania (kod 505)</option><option value="ko">Obiadokolacje (kod 518)</option></select></label>
+        </div>
+        <label class="drop" id="im-drop" for="im-file">Upuść plik .xlsx albo kliknij, aby wybrać<input type="file" id="im-file" accept=".xlsx" hidden></label>
+        <p class="note">Rezerwacje: kolumna A nr rezerwacji, F gość, I–J daty pobytu. Kwotę i nr rachunku wpiszesz teraz albo później. Śniadania i obiadokolacje: J nazwisko lub apartament, N pobyt, S nr rachunku, Y wartość.</p>
+      </div>
+      <div id="imp-body"></div>
+    </section>
+
+    <!-- ADMINISTRATOR -->
+    <section class="panel" id="p-team" hidden><div id="team-body"></div></section>
+
+    <section class="panel" id="p-appr" hidden>
+      <div class="row">
+        <h2 class="grow-title">Zatwierdzanie prowizji</h2>
+        <label class="f" for="af-emp">Pracownik<select id="af-emp"><option value="">Wszyscy</option></select></label>
+        <label class="f" for="af-type">Kategoria<select id="af-type"><option value="">Wszystkie</option><option value="rez">Rezerwacje</option><option value="sn">Śniadania</option><option value="ko">Obiadokolacje</option><option value="up">Upsell</option></select></label>
+        <label class="f" for="af-st">Status<select id="af-st"><option value="pending">Oczekuje</option><option value="todo">Do uzupełnienia</option><option value="">Wszystkie</option><option value="ok">Zatwierdzona</option><option value="x">Anulowana</option></select></label>
+        <button class="btn pri" id="af-bulk" type="button">Zatwierdź widoczne oczekujące</button>
+      </div>
+      <div id="appr-body"></div>
+    </section>
+
+    <section class="panel" id="p-storno" hidden>
+      <div class="row">
+        <div class="grow-title stack-sm"><h2>Anulacje rachunków</h2><p class="note">Pozycja ujemna u jednej osoby i dodatnia z tym samym nr rachunku, kwotą i kategorią u innej to anulacja. Oznaczenie pary wyłącza obie pozycje z prowizji.</p></div>
+        <button class="btn" id="st-all" type="button">Pokaż wszystkie okresy</button>
+      </div>
+      <div id="storno-body"></div>
+    </section>
+
+    <section class="panel" id="p-park" hidden>
+      <div class="card">
+        <div class="row"><h2 class="grow-title">Prowizja za parking</h2><span class="muted" id="pk-period"></span></div>
+        <p class="note">Kwota dzielona jest po równo na zaznaczone osoby. Domyślnie zaznaczeni są wszyscy aktywni pracownicy bez administratorów.</p>
+        <div class="row">
+          <label class="f" for="pk-amount">Kwota do podziału (zł)<input id="pk-amount" class="num" inputmode="decimal" placeholder="0,00"></label>
+          <button class="btn pri" id="pk-save" type="button">Zapisz parking</button>
+        </div>
+        <div id="pk-body"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="p-users" hidden>
+      <div class="card">
+        <h2>Dodaj pracownika</h2>
+        <form id="u-form" class="row">
+          <label class="f grow" for="u-name">Imię i nazwisko<input id="u-name" required maxlength="60"></label>
+          <label class="f" for="u-login">Login<input id="u-login" required autocapitalize="none" placeholder="np. akowalska"></label>
+          <label class="f" for="u-pass">Hasło startowe<input id="u-pass" required minlength="6" autocomplete="new-password"></label>
+          <label class="f" for="u-role">Rola<select id="u-role"><option value="employee">Pracownik</option><option value="admin">Administrator</option></select></label>
+          <button class="btn pri" type="submit">Utwórz konto</button>
+        </form>
+        <p class="note">Przekaż pracownikowi login i hasło startowe. Po zalogowaniu zmieni hasło w zakładce Konto.</p>
+      </div>
+      <div id="users-body"></div>
+    </section>
+
+    <section class="panel" id="p-set" hidden>
+      <div class="card">
+        <h2>Stawki i VAT</h2>
+        <div class="row">
+          <label class="f" for="s-rez">Rezerwacje (%)<input id="s-rez" class="num" inputmode="decimal"></label>
+          <label class="f" for="s-sn">Śniadania (%)<input id="s-sn" class="num" inputmode="decimal"></label>
+          <label class="f" for="s-ko">Obiadokolacje (%)<input id="s-ko" class="num" inputmode="decimal"></label>
+          <label class="f" for="s-up">Upsell (%)<input id="s-up" class="num" inputmode="decimal"></label>
+          <label class="f" for="s-vat">VAT (%)<input id="s-vat" class="num" inputmode="decimal"></label>
+        </div>
+        <div class="radio">
+          <label><input type="radio" name="vm" id="vm-minus" value="minus"> <span><b>Odejmij VAT od prowizji</b>: prowizja × (1 − 8%). Przykład: 100 zł → 92,00 zł.</span></label>
+          <label><input type="radio" name="vm" id="vm-divide" value="divide"> <span><b>Wydziel VAT z kwoty brutto</b>: prowizja ÷ 1,08. Przykład: 100 zł → 92,59 zł.</span></label>
+        </div>
+        <div class="row"><button class="btn pri" id="s-save" type="button">Zapisz ustawienia</button></div>
+      </div>
+    </section>
+
+    <section class="panel" id="p-acct" hidden>
+      <form id="pw-form" class="card narrow">
+        <h2>Zmiana hasła</h2>
+        <label class="f" for="pw-cur">Obecne hasło<input id="pw-cur" type="password" required autocomplete="current-password"></label>
+        <label class="f" for="pw-new">Nowe hasło (min. 6 znaków)<input id="pw-new" type="password" required minlength="6" autocomplete="new-password"></label>
+        <label class="f" for="pw-new2">Powtórz nowe hasło<input id="pw-new2" type="password" required minlength="6" autocomplete="new-password"></label>
+        <button class="btn pri" type="submit">Zmień hasło</button>
+      </form>
+    </section>
+  </div>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
