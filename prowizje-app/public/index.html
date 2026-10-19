@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rejestr prowizji</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="login" class="login hidden">
+    <form id="login-form" class="card">
+      <h1>Rejestr prowizji</h1>
+      <label>Login <input name="login" autocomplete="username" required></label>
+      <label>Hasło <input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Zaloguj</button>
+      <p class="error" id="login-error"></p>
+    </form>
+  </section>
+
+  <div id="app" class="hidden">
+    <header>
+      <strong>Rejestr prowizji</strong>
+      <nav id="nav"></nav>
+      <label class="month">Miesiąc <input type="month" id="month"></label>
+      <span id="who"></span>
+      <button class="ghost" id="logout">Wyloguj</button>
+    </header>
+    <main id="view"></main>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
